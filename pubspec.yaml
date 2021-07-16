@@ -1,0 +1,13 @@
+name: agg
+description: A dart port of Anti-Grain Geometry (AGG) C++ 2D graphic library
+version: 1.0.0
+
+environment:
+  sdk: '>=2.10.0 <3.0.0'
+
+dependencies:
+  glfw: ^0.2.4
+  pedantic: ^1.0.0
+  ffi_utils: ^0.1.1
+  ffi: ^0.1.3
+  opengl: ^0.3.4
