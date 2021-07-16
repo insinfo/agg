@@ -1,1 +1,1 @@
-##### Estudo para implementação de API de desenho e renderização de graficos 2D raster (Bitmap)
+##### beginning of the work of porting the Agg lib to dart
