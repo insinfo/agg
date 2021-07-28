@@ -86,6 +86,7 @@ class Vector2 implements IEquatable<Vector2> {
 			endAngle = endAngle < 0 ? endAngle + MathHelper.Tau : endAngle;
 
 			return endAngle - startAngle;*/
+    throw UnimplementedError();
   }
 
   /// Gets the length (magnitude) of the vector.
@@ -133,6 +134,7 @@ class Vector2 implements IEquatable<Vector2> {
 
   double getAngle0To2PI() {
     //	return MathHelper.Range0ToTau(GetAngle());
+    throw UnimplementedError();
   }
 
   /// Gets the perpendicular vector on the right side of this vector.

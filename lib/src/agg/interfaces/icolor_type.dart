@@ -2,9 +2,9 @@ import 'package:agg/src/agg/primitives/color.dart';
 import 'package:agg/src/agg/primitives/colorf.dart';
 
 abstract class IColorType {
-  ColorF ToColorF();
+  ColorF toColorF();
 
-  Color ToColor();
+  Color toColor();
 
   Color gradient(Color c, double k);
 

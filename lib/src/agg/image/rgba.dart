@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 
-abstract class goodInterfaceThinking // TODO: switch to an interface more like this for blenders.
+import 'package:agg/src/agg/primitives/color.dart';
+import 'package:agg/src/agg/primitives/colorf.dart';
+
+abstract class GoodInterfaceThinking // TODO: switch to an interface more like this for blenders.
 {
   int get numPixelBits;
 
@@ -40,7 +43,7 @@ abstract class IRecieveBlenderByte {
     var result = <int>[start.blue, start.green, start.red, start.alpha];
     this.blendPixel(result, 0, blend);
 
-    return new Color(result[2], result[1], result[0], result[3]);
+    return new Color.fromRGBA(result[2], result[1], result[0], result[3]);
   }
 }
 
