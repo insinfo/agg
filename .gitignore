@@ -2,3 +2,5 @@
 .dart_tool/
 pubspec.lock
 .packages
+
+agg-sharp/
