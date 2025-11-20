@@ -46,13 +46,13 @@ void main() {
   group('UnscaledGlyphPlanList', () {
     test('appends and retrieves plans', () {
       final list = UnscaledGlyphPlanList();
-      
+
       list.append(UnscaledGlyphPlan(
         inputCodepointOffset: 0,
         glyphIndex: 1,
         advanceX: 100,
       ));
-      
+
       list.append(UnscaledGlyphPlan(
         inputCodepointOffset: 1,
         glyphIndex: 2,
@@ -96,7 +96,7 @@ void main() {
   group('GlyphIndexList', () {
     test('adds glyphs with mappings', () {
       final list = GlyphIndexList();
-      
+
       list.addGlyph(0, 10);
       list.addGlyph(1, 20);
       list.addGlyph(2, 30);
@@ -105,7 +105,7 @@ void main() {
       expect(list[0], equals(10));
       expect(list[1], equals(20));
       expect(list[2], equals(30));
-      
+
       final mapping = list.getMapping(1);
       expect(mapping.codepointCharOffset, equals(1));
       expect(mapping.length, equals(1));
@@ -113,18 +113,18 @@ void main() {
 
     test('replaces glyphs for ligature', () {
       final list = GlyphIndexList();
-      
+
       // Add 'f', 'f', 'i' glyphs
       list.addGlyph(0, 10); // f
       list.addGlyph(1, 10); // f
       list.addGlyph(2, 20); // i
 
       // Replace with 'ffi' ligature
-      list.replace(0, 3, 99); // ffi ligature glyph
+      list.replaceRange(0, 3, 99); // ffi ligature glyph
 
       expect(list.count, equals(1));
       expect(list[0], equals(99));
-      
+
       final mapping = list.getMapping(0);
       expect(mapping.codepointCharOffset, equals(0));
       expect(mapping.length, equals(3)); // Represents 3 original chars
@@ -132,7 +132,7 @@ void main() {
 
     test('replaces one glyph with multiple', () {
       final list = GlyphIndexList();
-      
+
       list.addGlyph(0, 10);
 
       // Replace with multiple glyphs
@@ -159,14 +159,14 @@ void main() {
     Typeface createTestTypeface() {
       final nameEntry = NameEntry();
       nameEntry.fontName = 'Test Font';
-      
+
       final glyphs = List.generate(100, (i) => Glyph.empty(i));
       final hmtx = HorizontalMetrics(100, 100);
       final os2 = OS2Table();
-      
+
       // Create a simple cmap that maps A-Z to glyphs 1-26
       final cmap = Cmap();
-      
+
       return Typeface.fromTrueType(
         nameEntry: nameEntry,
         bounds: Bounds(0, 0, 1000, 1000),
@@ -180,7 +180,7 @@ void main() {
 
     test('requires typeface to be set', () {
       final layout = GlyphLayout();
-      
+
       expect(() => layout.layout('test'), throwsStateError);
     });
 
@@ -191,7 +191,7 @@ void main() {
 
       // Layout simple ASCII text
       final plans = layout.layout('ABC');
-      
+
       // Should create plans for 3 glyphs
       expect(plans.count, equals(3));
     });
@@ -202,13 +202,13 @@ void main() {
       layout.typeface = typeface;
 
       layout.layout('Hi');
-      
+
       // Scale for 16px at 1000 units per em
       final scale = 16.0 / 1000.0; // 0.016
       final scaledPlans = layout.generateGlyphPlans(scale);
 
       expect(scaledPlans.count, equals(2));
-      
+
       // Positions should accumulate
       expect(scaledPlans[0].x, equals(0.0));
       // Second glyph x position depends on first glyph's advance
@@ -221,7 +221,7 @@ void main() {
 
       // String with emoji (surrogate pair)
       final plans = layout.layout('A🙌B');
-      
+
       // Should create 3 glyph plans (A, emoji, B)
       expect(plans.count, equals(3));
     });
@@ -233,7 +233,7 @@ void main() {
 
       layout.layout('Test');
       layout.clear();
-      
+
       final plans = layout.layout('New');
       expect(plans.count, equals(3)); // Should work after clear
     });

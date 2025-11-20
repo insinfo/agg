@@ -1,39 +1,39 @@
-import 'rectangle_double.dart';
+import 'rectangle_int.dart';
 
-class RectangleInt {
-  int left;
-  int bottom;
-  int right;
-  int top;
+class RectangleDouble {
+  double left;
+  double bottom;
+  double right;
+  double top;
 
-  RectangleInt(this.left, this.bottom, this.right, this.top);
+  RectangleDouble(this.left, this.bottom, this.right, this.top);
 
-  RectangleInt.fromRect(RectangleDouble rect)
-      : left = rect.left.floor(),
-        bottom = rect.bottom.floor(),
-        right = rect.right.ceil(),
-        top = rect.top.ceil();
+  RectangleDouble.fromRect(RectangleInt rect)
+      : left = rect.left.toDouble(),
+        bottom = rect.bottom.toDouble(),
+        right = rect.right.toDouble(),
+        top = rect.top.toDouble();
 
-  int get height => top - bottom;
-  int get width => right - left;
+  double get height => top - bottom;
+  double get width => right - left;
 
-  int get centerX => (left + right) ~/ 2;
-  int get centerY => (bottom + top) ~/ 2;
+  double get centerX => (left + right) / 2.0;
+  double get centerY => (bottom + top) / 2.0;
 
   void normalize() {
     if (left > right) {
-      int temp = left;
+      double temp = left;
       left = right;
       right = temp;
     }
     if (bottom > top) {
-      int temp = bottom;
+      double temp = bottom;
       bottom = top;
       top = temp;
     }
   }
 
-  bool clip(RectangleInt r) {
+  bool clip(RectangleDouble r) {
     if (right < r.left || left > r.right || top < r.bottom || bottom > r.top) {
       left = right = bottom = top = 0;
       return false;
@@ -47,18 +47,18 @@ class RectangleInt {
     return true;
   }
 
-  bool contains(int x, int y) {
+  bool contains(double x, double y) {
     return x >= left && x <= right && y >= bottom && y <= top;
   }
 
-  void expand(int v) {
+  void expand(double v) {
     left -= v;
     bottom -= v;
     right += v;
     top += v;
   }
 
-  void intersectWith(RectangleInt other) {
+  void intersectWith(RectangleDouble other) {
     if (left < other.left) left = other.left;
     if (bottom < other.bottom) bottom = other.bottom;
     if (right > other.right) right = other.right;
@@ -70,7 +70,7 @@ class RectangleInt {
     }
   }
 
-  void unionWith(RectangleInt other) {
+  void unionWith(RectangleDouble other) {
     if (other.left == 0 &&
         other.right == 0 &&
         other.bottom == 0 &&
@@ -90,12 +90,12 @@ class RectangleInt {
   }
 
   @override
-  String toString() => 'RectangleInt($left, $bottom, $right, $top)';
+  String toString() => 'RectangleDouble($left, $bottom, $right, $top)';
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is RectangleInt &&
+    return other is RectangleDouble &&
         other.left == left &&
         other.bottom == bottom &&
         other.right == right &&

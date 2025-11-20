@@ -5,22 +5,21 @@ abstract class IGammaFunction {
   double getGamma(double x);
 }
 
-class Gamma_none implements IGammaFunction {
+class GammaNone implements IGammaFunction {
+  @override
   double getGamma(double x) {
     return x;
   }
 }
 
 //==============================================================gamma_power
-class Gamma_power implements IGammaFunction {
-  Gamma_power() {
-    m_gamma = 1.0;
-  }
+class GammaPower implements IGammaFunction {
+  double m_gamma;
+
+  GammaPower([this.m_gamma = 1.0]);
 
   /// gamma_power(double g)
-  Gamma_power.fromGama(double g) {
-    m_gamma = g;
-  }
+  GammaPower.fromGamma(double g) : m_gamma = g;
 
   /// void gamma(double g)
   set gamma(double g) {
@@ -32,23 +31,20 @@ class Gamma_power implements IGammaFunction {
     return m_gamma;
   }
 
+  @override
   double getGamma(double x) {
-    return math.pow(x, m_gamma);
+    return math.pow(x, m_gamma).toDouble();
   }
-
-  double m_gamma;
 }
 
 //==========================================================gamma_threshold
-class Gamma_threshold implements IGammaFunction {
-  Gamma_threshold() {
-    m_threshold = 0.5;
-  }
+class GammaThreshold implements IGammaFunction {
+  double m_threshold;
+
+  GammaThreshold([this.m_threshold = 0.5]);
 
   /// gamma_threshold(double t)
-  Gamma_threshold.fromThreshold(double t) {
-    m_threshold = t;
-  }
+  GammaThreshold.fromThreshold(double t) : m_threshold = t;
 
   /// void threshold(double t)
   set threshold(double t) {
@@ -59,27 +55,25 @@ class Gamma_threshold implements IGammaFunction {
     return m_threshold;
   }
 
+  @override
   double getGamma(double x) {
     return (x < m_threshold) ? 0.0 : 1.0;
   }
-
-  double m_threshold;
 }
 
 //============================================================gamma_linear
-class Gamma_linear implements IGammaFunction {
-  Gamma_linear() {
-    m_start = (0.0);
-    m_end = (1.0);
-  }
+class GammaLinear implements IGammaFunction {
+  double m_start;
+  double m_end;
+
+  GammaLinear([this.m_start = 0.0, this.m_end = 1.0]);
 
   /// gamma_linear(double s, double e)
-  Gamma_linear.fromStartEnd(double s, double e) {
-    m_start = (s);
-    m_end = (e);
-  }
+  GammaLinear.fromStartEnd(double s, double e)
+      : m_start = s,
+        m_end = e;
 
-  void fromStartEnd(double s, double e) {
+  void setStartEnd(double s, double e) {
     m_start = s;
     m_end = e;
   }
@@ -100,29 +94,26 @@ class Gamma_linear implements IGammaFunction {
     return m_end;
   }
 
+  @override
   double getGamma(double x) {
     if (x < m_start) return 0.0;
     if (x > m_end) return 1.0;
     double endMinusStart = m_end - m_start;
-    if (endMinusStart != 0)
+    if (endMinusStart != 0) {
       return (x - m_start) / endMinusStart;
-    else
+    } else {
       return 0.0;
+    }
   }
-
-  double m_start;
-  double m_end;
 }
 
 //==========================================================gamma_multiply
-class Gamma_multiply implements IGammaFunction {
-  Gamma_multiply() {
-    m_mul = (1.0);
-  }
+class GammaMultiply implements IGammaFunction {
+  double m_mul;
 
-  Gamma_multiply.fromV(double v) {
-    m_mul = (v);
-  }
+  GammaMultiply([this.m_mul = 1.0]);
+
+  GammaMultiply.fromV(double v) : m_mul = v;
 
   set value(double v) {
     m_mul = v;
@@ -132,11 +123,10 @@ class Gamma_multiply implements IGammaFunction {
     return m_mul;
   }
 
+  @override
   double getGamma(double x) {
     double y = x * m_mul;
     if (y > 1.0) y = 1.0;
     return y;
   }
-
-  double m_mul;
 }

@@ -4,10 +4,12 @@ import 'dart:math' as math;
 
 class Vector2 implements IEquatable<Vector2> {
   /// Defines an instance with all components set to positive infinity.
-  static Vector2 positiveInfinity = new Vector2(double.infinity, double.infinity);
+  static Vector2 positiveInfinity =
+      new Vector2(double.infinity, double.infinity);
 
   /// Defines an instance with all components set to negative infinity.
-  static Vector2 negativeInfinity = new Vector2(double.negativeInfinity, double.negativeInfinity);
+  static Vector2 negativeInfinity =
+      new Vector2(double.negativeInfinity, double.negativeInfinity);
 
   /// The X coordinate of this instance.</summary>
   double x;
@@ -31,10 +33,7 @@ class Vector2 implements IEquatable<Vector2> {
   /// Constructs left vector with the given coordinates.</summary>
   /// <param name="x">The X coordinate.</param>
   /// <param name="y">The Y coordinate.</param>
-  Vector2(double x, double y) {
-    this.x = x;
-    this.y = y;
-  }
+  Vector2(this.x, this.y);
 
   operator [](int index) {
     switch (index) {
@@ -255,7 +254,7 @@ class Vector2 implements IEquatable<Vector2> {
     }).toList();
 
     for (int i = 0; i < math.min(2, values.length); i++) {
-      result[i] = values[i];
+      result[i] = values[i].toDouble();
     }
 
     return result;
@@ -355,7 +354,8 @@ class Vector2 implements IEquatable<Vector2> {
     return a;
   }
 
-  static Vector2 baryCentric(Vector2 a, Vector2 b, Vector2 c, double u, double v) {
+  static Vector2 baryCentric(
+      Vector2 a, Vector2 b, Vector2 c, double u, double v) {
     var result = Vector2(a.x, a.y); // copy
 
     var temp = Vector2(b.x, b.y); // copy

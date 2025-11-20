@@ -3,7 +3,7 @@
 ## Status Geral
 **Projeto:** Porte da biblioteca Typography (agg-sharp) de C# para Dart  
 **Data de Início:** 07 de Novembro de 2025  
-**Status Atual:** Em Progresso - Fase 1 (Análise do Arquivo da Fonte)
+**Status Atual:** Em Progresso - Fase 3 (AGG Core) - 5%
 
 ---
 
@@ -163,10 +163,11 @@
   - ⏳ GSUB/GPOS pendente
 
 ### Tabelas de Layout Avançado
-- [ ] `GSUB` - `lib/src/typography/openfont/tables/gsub.dart` (Substituição de Glifos)
-  - Ligaduras (fi, fl, ffi, etc.)
-  - Substituições contextuais
-  - PENDENTE
+- [x] `GSUB` - `lib/src/typography/openfont/tables/gsub.dart` (Substituição de Glifos)
+  - ✅ Tipos de Lookup 1, 2, 3, 4 implementados
+  - ✅ Ligaduras (fi, fl, ffi, etc.)
+  - ✅ Substituições contextuais (parcial)
+  - ✅ `ScriptList`, `FeatureList`, `CoverageTable`, `ClassDefTable` portados
 
 - [ ] `GPOS` - `lib/src/typography/openfont/tables/gpos.dart` (Posicionamento de Glifos)
   - Kerning
@@ -180,6 +181,39 @@
 - [ ] `BASE` - `lib/src/typography/openfont/tables/base.dart`
   - Linhas de base
   - PENDENTE
+
+---
+
+## 🚀 Fase 3: AGG Core - EM PROGRESSO
+
+### Primitives
+- [x] `IColorType` - `lib/src/agg/primitives/i_color_type.dart`
+- [x] `Color` - `lib/src/agg/primitives/color.dart`
+- [x] `ColorF` - `lib/src/agg/primitives/color_f.dart`
+- [x] `RectangleInt` - `lib/src/agg/primitives/rectangle_int.dart`
+- [x] `RectangleDouble` - `lib/src/agg/primitives/rectangle_double.dart`
+- [x] `Point2D` - `lib/src/agg/primitives/point2d.dart`
+
+### Transform
+- [x] `Affine` - `lib/src/agg/transform/affine.dart`
+- [ ] `Perspective` - `lib/src/agg/transform/perspective.dart`
+
+### Vertex Source
+- [x] `PathCommands` - `lib/src/agg/vertex_source/path_commands.dart`
+- [x] `VertexData` - `lib/src/agg/vertex_source/vertex_data.dart`
+- [x] `IVertexSource` - `lib/src/agg/vertex_source/i_vertex_source.dart`
+- [x] `VertexStorage` - `lib/src/agg/vertex_source/vertex_storage.dart`
+- [x] `Arc` - `lib/src/agg/vertex_source/arc.dart`
+- [x] `Ellipse` - `lib/src/agg/vertex_source/ellipse.dart`
+- [x] `RoundedRect` - `lib/src/agg/vertex_source/rounded_rect.dart`
+
+### Rasterizer
+- [ ] `RasterizerScanline`
+- [ ] `Scanline`
+
+### Image
+- [ ] `ImageBuffer`
+- [ ] `Blenders`
 
 ---
 
@@ -219,6 +253,8 @@
 - GlyphPlan ✅
 - GlyphIndexList ✅
 - **GlyphLayout** ✅ (versão básica)
+- **GSUB** ✅ (parcial)
+- ScriptList, FeatureList, CoverageTable, ClassDefTable ✅
 
 ### Testes: 61/61 passando (100%)
 
@@ -301,7 +337,7 @@ Nenhum no momento.
 - ✅ Suporte a texto simples e emoji (surrogate pairs)
 - ✅ Escalamento de fontes para pixels
 - ✅ 14 testes unitários com 100% passando
-- ⏳ GSUB (ligaduras) - PENDENTE
+- 🔄 GSUB (ligaduras) - PARCIALMENTE IMPLEMENTADO
 - ⏳ GPOS (kerning) - PENDENTE
 
 ### Próximo Marco:

@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 class ScanlineSpan {
-  int x;
-  int len;
-  int cover_index;
+  int x = 0;
+  int len = 0;
+  int cover_index = 0;
 }
 
 abstract class IScanlineCache {

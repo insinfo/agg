@@ -1,0 +1,146 @@
+import '../../../typography/io/byte_order_swapping_reader.dart';
+import 'utils.dart';
+
+//from https://www.microsoft.com/typography/otfntdev/standot/features.aspx
+//The order for applying standard features encoded in OpenType fonts:
+
+//Feature   	Feature function 	                                Layout operation 	Required
+//---------------------
+//Language based forms:
+//---------------------
+//ccmp 	        Character composition/decomposition substitution 	GSUB
+//---------------------
+//Typographical forms:
+//---------------------
+//liga 	        Standard ligature substitution 	                    GSUB
+//clig 	        Contextual ligature substitution 	                GSUB
+//Positioning features:
+//kern 	        Pair kerning 	                                    GPOS
+//mark 	        Mark to base positioning 	                        GPOS 	X
+//mkmk 	        Mark to mark positioning 	                        GPOS 	X
+
+//[GSUB = glyph substitution, GPOS = glyph positioning]
+
+class FeatureList {
+  late List<FeatureTable> featureTables;
+
+  static FeatureList createFrom(
+      ByteOrderSwappingBinaryReader reader, int beginAt) {
+    //https://www.microsoft.com/typography/otspec/chapter2.htm
+
+    //------------------
+    //FeatureList table
+    //------------------
+    //Type 	    Name 	        Description
+    //uint16 	FeatureCount 	Number of FeatureRecords in this table
+    //struct 	FeatureRecord[FeatureCount] 	Array of FeatureRecords-zero-based (first feature has FeatureIndex = 0)-listed alphabetically by FeatureTag
+    //------------------
+    //FeatureRecord
+    //------------------
+    //Type 	    Name 	        Description
+    //Tag 	    FeatureTag 	    4-byte feature identification tag
+    //Offset16 	Feature 	    Offset to Feature table-from beginning of FeatureList
+    //----------------------------------------------------
+    reader.seek(beginAt);
+    //
+    FeatureList featureList = FeatureList();
+    int featureCount = reader.readUInt16();
+    List<FeatureRecord> featureRecords =
+        List<FeatureRecord>.generate(featureCount, (i) {
+      //read script record
+      return FeatureRecord(
+          reader.readUInt32(), //feature tag
+          reader.readUInt16() //Offset16
+          );
+    });
+
+    //read each feature table
+    featureList.featureTables = List<FeatureTable>.generate(featureCount, (i) {
+      FeatureRecord frecord = featureRecords[i];
+      var table = FeatureTable.createFrom(reader, beginAt + frecord.offset);
+      table.featureTag = frecord.featureTag;
+      return table;
+    });
+
+    return featureList;
+  }
+}
+
+class FeatureRecord {
+  final int featureTag; //4-byte ScriptTag identifier
+  final int offset; //Script Offset to Script table-from beginning of ScriptList
+
+  FeatureRecord(this.featureTag, this.offset);
+
+  String get featureName => Utils.tagToString(featureTag);
+
+  @override
+  String toString() {
+    return '$featureName,$offset';
+  }
+}
+
+//Feature Table
+
+//A Feature table defines a feature with one or more lookups.
+//The client uses the lookups to substitute or position glyphs.
+
+//Feature tables defined within the GSUB table contain references to glyph substitution lookups,
+//and feature tables defined within the GPOS table contain references to glyph positioning lookups.
+//If a text-processing operation requires both glyph substitution and positioning,
+//then both the GSUB and GPOS tables must each define a Feature table,
+//and the tables must use the same FeatureTags.
+
+//A Feature table consists of an offset to a Feature Parameters (FeatureParams) table
+//(if one has been defined for this feature - see note in the following paragraph),
+//a count of the lookups listed for the feature (LookupCount),
+//and an arbitrarily ordered array of indices into a LookupList (LookupListIndex).
+//The LookupList indices are references into an array of offsets to Lookup tables.
+
+//The format of the Feature Parameters table is specific to a particular feature,
+//and must be specified in the feature's entry in the Feature Tags section of the OpenType Layout Tag Registry.
+//The length of the Feature Parameters table must be implicitly or explicitly specified in the Feature Parameters table itself.
+//The FeatureParams field in the Feature Table records the offset relative to the beginning of the Feature Table.
+//If a Feature Parameters table is not needed, the FeatureParams field must be set to NULL.
+
+//To identify the features in a GSUB or GPOS table,
+//a text-processing client reads the FeatureTag of each FeatureRecord referenced in a given LangSys table.
+//Then the client selects the features it wants to implement and uses the LookupList to retrieve the Lookup indices of the chosen features.
+//Next, the client arranges the indices in the LookupList order.
+//Finally, the client applies the lookup data to substitute or position glyphs.
+
+//Example 3 at the end of this chapter shows the FeatureList and Feature tables used to substitute ligatures in two languages.
+//
+
+class FeatureTable {
+  //--------------------------
+  //Feature table
+  //--------------------------
+  //Type 	    Name 	        Description
+  //Offset16 	FeatureParams 	= NULL (reserved for offset to FeatureParams)
+  //uint16 	LookupCount 	Number of LookupList indices for this feature
+  //uint16 	LookupListIndex[LookupCount] 	Array of LookupList indices for this feature -zero-based (first lookup is LookupListIndex = 0)
+  //--------------------------
+
+  late List<int> lookupListIndices;
+  int featureTag = 0;
+
+  static FeatureTable createFrom(
+      ByteOrderSwappingBinaryReader reader, int beginAt) {
+    reader.seek(beginAt);
+    //
+    reader.readUInt16(); // featureParams (reserved/offset)
+    int lookupCount = reader.readUInt16();
+
+    FeatureTable featureTable = FeatureTable();
+    featureTable.lookupListIndices = Utils.readUInt16Array(reader, lookupCount);
+    return featureTable;
+  }
+
+  String get tagName => Utils.tagToString(featureTag);
+
+  @override
+  String toString() {
+    return tagName;
+  }
+}

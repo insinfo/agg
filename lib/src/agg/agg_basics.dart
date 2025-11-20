@@ -1,6 +1,5 @@
 //----------------------------------------------------------filling_rule_e
 import 'dart:typed_data';
-
 import 'package:agg/src/shared/ref_param.dart';
 import 'dart:math' as math;
 
@@ -13,37 +12,36 @@ enum filling_rule_e { fill_non_zero, fill_even_odd }
 // sizeof(int) * 8 - poly_subpixel_shift, i.e, for 32-bit integers and
 // 8-bits fractional part the capacity is 24 bits.
 class poly_subpixel_scale_e {
-  static final poly_subpixel_shift = 8; //----poly_subpixel_shift
-  static final poly_subpixel_scale = 1 << poly_subpixel_shift; //----poly_subpixel_scale
-  static final poly_subpixel_mask = poly_subpixel_scale - 1; //----poly_subpixel_mask
+  static const int poly_subpixel_shift = 8; //----poly_subpixel_shift
+  static const int poly_subpixel_scale =
+      1 << poly_subpixel_shift; //----poly_subpixel_scale
+  static const int poly_subpixel_mask =
+      poly_subpixel_scale - 1; //----poly_subpixel_mask
 }
 
 class Agg_basics {
-  static void memcpy(Uint8List dest, int destIndex, Uint8List source, int sourceIndex, int count) {
+  static void memcpy(Uint8List dest, int destIndex, Uint8List source,
+      int sourceIndex, int count) {
     for (int i = 0; i < count; i++) {
       dest[destIndex + i] = source[sourceIndex + i];
     }
   }
 
   // private static Regex numberRegex = new Regex(@"[-+]?[0-9]*\.?[0-9]+");
-  static RegExp numberRegex = new RegExp(r"[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?");
+  static RegExp numberRegex = RegExp(r"[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?");
 
   static double getNextNumber(String source, RefParam<int> startIndex) {
-    /*
-    Match numberMatch = numberRegex.Match(source, startIndex);
-    string returnString = numberMatch.Value;
-    startIndex = numberMatch.Index + numberMatch.Length;
-    double returnVal;
-    double.TryParse(returnString, NumberStyles.Number, CultureInfo.InvariantCulture, out returnVal);
-    return returnVal;
-      */
-    Match numberMatch = numberRegex.matchAsPrefix(source, startIndex.value);
-    String returnString = numberMatch.group(0);
+    Match? numberMatch = numberRegex.matchAsPrefix(source, startIndex.value);
+    if (numberMatch == null) return 0.0;
+
+    String? returnString = numberMatch.group(0);
+    if (returnString == null) return 0.0;
+
     startIndex.value = numberMatch.start + numberMatch.end;
-    return double.tryParse(returnString);
+    return double.tryParse(returnString) ?? 0.0;
   }
 
-  static int clamp(int value, int min, int max, [RefParam<bool> changed]) {
+  static int clamp(int value, int min, int max, [RefParam<bool>? changed]) {
     min = math.min(min, max);
 
     if (value < min) {
@@ -59,7 +57,8 @@ class Agg_basics {
     return value;
   }
 
-  static double clampF(double value, double min, double max, [RefParam<bool> changed]) {
+  static double clampF(double value, double min, double max,
+      [RefParam<bool>? changed]) {
     min = math.min(min, max);
 
     if (value < min) {
@@ -76,12 +75,7 @@ class Agg_basics {
   }
 
   static Uint8List getBytes(String str) {
-    //Uint8List bytes = new Uint8List.[str.length * sizeof(char)];
-    //str.split('')
-    //str.runes
-
-    //System.Buffer.BlockCopy(str., 0, bytes, 0, bytes.Length);
-    return str.codeUnits;
+    return Uint8List.fromList(str.codeUnits);
   }
 
   static bool is_equal_eps(double v1, double v2, double epsilon) {
@@ -99,15 +93,15 @@ class Agg_basics {
   }
 
   static int iround(double v) {
-    return ((v < 0.0) ? v - 0.5 : v + 0.5) as int;
+    return ((v < 0.0) ? v - 0.5 : v + 0.5).toInt();
   }
 
   static int iround2(double v, int saturationLimit) {
-    if (v < (-saturationLimit as double)) {
+    if (v < -saturationLimit) {
       return -saturationLimit;
     }
 
-    if (v > (saturationLimit as double)) {
+    if (v > saturationLimit) {
       return saturationLimit;
     }
 
@@ -115,11 +109,11 @@ class Agg_basics {
   }
 
   static int uround(double v) {
-    return (v + 0.5) as int;
+    return (v + 0.5).toInt();
   }
 
   static int ufloor(double v) {
-    return v as int;
+    return v.floor();
   }
 
   static int uceil(double v) {

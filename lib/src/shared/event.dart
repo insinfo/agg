@@ -24,7 +24,7 @@ class Event<T> {
   void removeListener(Object owner) {
     if (_listeners.containsKey(owner)) {
       var listener = _listeners[owner];
-      listener.cancel();
+      listener?.cancel();
       _listeners.remove(owner);
     }
     _eventHandlers.remove(owner);
@@ -40,7 +40,7 @@ class Event<T> {
     if (_eventHandlers.containsKey(owner)) {
       final eventHandler = _eventHandlers[owner];
       final data = eventData.data;
-      eventHandler(owner, data);
+      eventHandler?.call(owner, data);
     }
   }
 }

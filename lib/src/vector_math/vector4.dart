@@ -43,21 +43,15 @@ class Vector4 implements IEquatable<Vector4> {
   /// <param name="y">The y component of the Vector4d.</param>
   /// <param name="z">The z component of the Vector4d.</param>
   /// <param name="w">The w component of the Vector4d.</param>
-  Vector4(double x, double y, double z, double w) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    this.w = w;
-  }
+  Vector4(this.x, this.y, this.z, this.w);
 
   /// Constructs a new Vector4d from the given Vector2d.
   /// <param name="v">The Vector2d to copy components from.</param>
-  Vector4.fromVector2(Vector2 v) {
-    x = v.x;
-    y = v.y;
-    z = 0.0;
-    w = 0.0;
-  }
+  Vector4.fromVector2(Vector2 v)
+      : x = v.x,
+        y = v.y,
+        z = 0.0,
+        w = 0.0;
 
   /// Constructs a new Vector4d from the given Vector3d.
   /// <param name="v">The Vector3d to copy components from.</param>
@@ -80,16 +74,16 @@ class Vector4 implements IEquatable<Vector4> {
 
   /// Constructs a new Vector4d from the given Vector4d.
   /// <param name="v">The Vector4d to copy components from.</param>
-  Vector4.fromVector4(Vector4 v) {
-    x = v.x;
-    y = v.y;
-    z = v.z;
-    w = v.w;
-  }
+  Vector4.fromVector4(Vector4 v)
+      : x = v.x,
+        y = v.y,
+        z = v.z,
+        w = v.w;
 
   static Vector4 parse(String s) {
     var result = Vector4.zero;
-    var values = s.split(',').map((sValue) => double.tryParse(sValue)).toList();
+    var values =
+        s.split(',').map((sValue) => double.tryParse(sValue) ?? 0.0).toList();
     for (int i = 0; i < math.min(4, values.length); i++) {
       result[i] = values[i];
     }
@@ -163,7 +157,14 @@ class Vector4 implements IEquatable<Vector4> {
   }
 
   bool isValid() {
-    if (x.isNaN || x.isInfinite || y.isNaN || y.isInfinite || z.isNaN || z.isInfinite || w.isNaN || w.isInfinite) {
+    if (x.isNaN ||
+        x.isInfinite ||
+        y.isNaN ||
+        y.isInfinite ||
+        z.isNaN ||
+        z.isInfinite ||
+        w.isNaN ||
+        w.isInfinite) {
       return false;
     }
     return true;
@@ -190,7 +191,8 @@ class Vector4 implements IEquatable<Vector4> {
   /// <param name="scale">Right operand.</param>
   /// <returns>Result of the operation.</returns>
   static Vector4 multiplyByScalar(Vector4 vector, double scale) {
-    return Vector4(vector.x * scale, vector.y * scale, vector.z * scale, vector.w * scale);
+    return Vector4(
+        vector.x * scale, vector.y * scale, vector.z * scale, vector.w * scale);
   }
 
   /// Multiplies a vector by the components a vector (scale).
@@ -198,7 +200,8 @@ class Vector4 implements IEquatable<Vector4> {
   /// <param name="scale">Right operand.</param>
   /// <returns>Result of the operation.</returns>
   static Vector4 multiply(Vector4 vector, Vector4 scale) {
-    return Vector4(vector.x * scale.x, vector.y * scale.y, vector.z * scale.z, vector.w * scale.w);
+    return Vector4(vector.x * scale.x, vector.y * scale.y, vector.z * scale.z,
+        vector.w * scale.w);
   }
 
   /// Divides a vector by a scalar.
@@ -214,7 +217,8 @@ class Vector4 implements IEquatable<Vector4> {
   /// <param name="scale">Right operand.</param>
   /// <returns>Result of the operation.</returns>
   static Vector4 divide(Vector4 vector, Vector4 scale) {
-    return Vector4(vector.x / scale.x, vector.y / scale.y, vector.z / scale.z, vector.w / scale.w);
+    return Vector4(vector.x / scale.x, vector.y / scale.y, vector.z / scale.z,
+        vector.w / scale.w);
   }
 
   /// Calculate the component-wise minimum of two vectors
@@ -289,7 +293,10 @@ class Vector4 implements IEquatable<Vector4> {
   /// <param name="right">Second operand</param>
   /// <returns>The dot product of the two inputs</returns>
   static double dot(Vector4 left, Vector4 right) {
-    return left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w;
+    return left.x * right.x +
+        left.y * right.y +
+        left.z * right.z +
+        left.w * right.w;
   }
 
   /// Returns a new Vector that is the linear blend of the 2 given Vectors
@@ -323,7 +330,8 @@ class Vector4 implements IEquatable<Vector4> {
   /// <param name="u">First Barycentric Coordinate</param>
   /// <param name="v">Second Barycentric Coordinate</param>
   /// <returns>a when u=v=0, b when u=1,v=0, c when u=0,v=1, and a linear combination of a,b,c otherwise</returns>
-  static Vector4 baryCentric(Vector4 a, Vector4 b, Vector4 c, double u, double v) {
+  static Vector4 baryCentric(
+      Vector4 a, Vector4 b, Vector4 c, double u, double v) {
     var result = Vector4(a.x, a.y, a.z, a.w); // copy
 
     var temp = Vector4(b.x, b.y, b.z, b.w); // copy
