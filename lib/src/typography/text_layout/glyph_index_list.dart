@@ -1,6 +1,7 @@
 // MIT, 2016-present, WinterDev
 // Ported to Dart by insinfo, 2025
 import '../openfont/tables/i_glyph_index_list.dart';
+import 'user_char_to_glyph_index_map.dart';
 
 /// Maps a glyph index to a user codepoint
 class GlyphIndexToUserCodePoint {
@@ -102,6 +103,26 @@ class GlyphIndexList implements IGlyphIndexList {
     _glyphIndices.clear();
     _mapGlyphIndexToUserCodePoint.clear();
     _inputCodePointIndexList.clear();
+  }
+
+  /// Build a map from user codepoint positions to glyph indices after substitution.
+  void createMapFromUserCodePointToGlyphIndices(
+    List<UserCodePointToGlyphIndex> output,
+  ) {
+    // Step 1: seed with codepoint order.
+    for (final codepointIndex in _inputCodePointIndexList) {
+      output.add(UserCodePointToGlyphIndex(
+        userCodePointIndex: codepointIndex,
+      ));
+    }
+
+    // Step 2: fill each codepoint entry with glyph offsets/lengths.
+    for (var i = 0; i < _glyphIndices.length; i++) {
+      final map = _mapGlyphIndexToUserCodePoint[i];
+      final entry = output[map.codepointCharOffset];
+      entry.appendData(i + 1, map.length); // 1-based offset
+      output[map.codepointCharOffset] = entry;
+    }
   }
 
   @override

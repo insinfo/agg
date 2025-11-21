@@ -10,6 +10,7 @@ class GlyphSubstitution {
   bool _mustRebuildTables = true;
   bool _enableLigation = true;
   bool _enableComposition = true;
+  bool _enableMathFeature = true;
 
   GlyphSubstitution(GSUB gsubTable, String language)
       : _gsubTable = gsubTable,
@@ -27,6 +28,15 @@ class GlyphSubstitution {
   set enableComposition(bool value) {
     if (_enableComposition != value) {
       _enableComposition = value;
+      _mustRebuildTables = true;
+    }
+  }
+
+  /// Enable OpenType math-related substitutions (ssty, dtls, flac, math)
+  bool get enableMathFeature => _enableMathFeature;
+  set enableMathFeature(bool value) {
+    if (_enableMathFeature != value) {
+      _enableMathFeature = value;
       _mustRebuildTables = true;
     }
   }
@@ -105,6 +115,12 @@ class GlyphSubstitution {
         return _enableComposition;
       case 'liga':
         return _enableLigation;
+      case 'ssty':
+      case 'dtls':
+      case 'dlts': // typo-friendly alias
+      case 'flac':
+      case 'math':
+        return _enableMathFeature;
       default:
         return false;
     }

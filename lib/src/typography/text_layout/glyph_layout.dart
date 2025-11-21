@@ -5,6 +5,7 @@ import 'glyph_pos_stream.dart';
 import 'glyph_set_position.dart';
 import 'glyph_substitution.dart';
 import 'script_lang.dart';
+import 'user_char_to_glyph_index_map.dart';
 
 /// Position technique for glyph layout
 enum PositionTechnique {
@@ -41,6 +42,9 @@ class GlyphLayout {
   GlyphSubstitution? _gsub;
   GlyphSetPosition? _gpos;
   bool _needPlanUpdate = true;
+
+  /// Unscaled glyph positions (in font units), used by measurement helpers.
+  GlyphPosStream get resultUnscaledGlyphPositions => _glyphPositions;
 
   /// Set the typeface to use for layout
   set typeface(Typeface? value) {
@@ -200,6 +204,12 @@ class GlyphLayout {
     _unscaledPlans.clear();
     _glyphPositions.clear();
     _needPlanUpdate = true;
+  }
+
+  /// Create a map from user codepoint buffer to output glyph indices.
+  void createMapFromUserCharToGlyphIndices(
+      List<UserCodePointToGlyphIndex> output) {
+    _inputGlyphs.createMapFromUserCodePointToGlyphIndices(output);
   }
 
   void _updateLayoutPlan() {

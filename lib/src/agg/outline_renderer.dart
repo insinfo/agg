@@ -1035,6 +1035,26 @@ class OutlineRenderer implements LineRenderer {
 
   void blendSolidHspan(int x, int y, int len, Uint8List covers, int coversIdx) {
     if (y < 0 || y >= _image.height) return;
+    if (_clipBox != null) {
+      if (y < _clipBox!.bottom || y > _clipBox!.top) {
+        return;
+      }
+      final int left = _clipBox!.left;
+      final int right = _clipBox!.right;
+      if (x < left) {
+        final int delta = left - x;
+        len -= delta;
+        coversIdx += delta;
+        x = left;
+      }
+      final int overRight = (x + len) - (right + 1);
+      if (overRight > 0) {
+        len -= overRight;
+      }
+    }
+    if (len <= 0) {
+      return;
+    }
     if (x < 0) {
       len += x;
       if (len <= 0) return;
@@ -1050,6 +1070,24 @@ class OutlineRenderer implements LineRenderer {
 
   void blendSolidVspan(int x, int y, int len, Uint8List covers, int coversIdx) {
     if (x < 0 || x >= _image.width) return;
+    if (_clipBox != null) {
+      if (x < _clipBox!.left || x > _clipBox!.right) {
+        return;
+      }
+      if (y < _clipBox!.bottom) {
+        final int delta = _clipBox!.bottom - y;
+        len -= delta;
+        coversIdx += delta;
+        y = _clipBox!.bottom;
+      }
+      final int overTop = (y + len) - (_clipBox!.top + 1);
+      if (overTop > 0) {
+        len -= overTop;
+      }
+    }
+    if (len <= 0) {
+      return;
+    }
     if (y < 0) {
       len += y;
       if (len <= 0) return;

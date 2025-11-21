@@ -1,8 +1,13 @@
 import '../../../typography/io/byte_order_swapping_reader.dart';
+import '../glyph.dart';
+import 'coverage_table.dart';
+import 'gdef.dart';
 import 'glyph_shaping_table_entry.dart';
 import 'i_glyph_index_list.dart';
-import 'coverage_table.dart';
 import 'utils.dart';
+
+typedef GlyphClassResolver = GlyphClassKind Function(int glyphIndex);
+typedef GlyphMarkClassResolver = int Function(int glyphIndex);
 
 class GSUB extends GlyphShapingTableEntry {
   static const String _N = "GSUB";
@@ -11,6 +16,9 @@ class GSUB extends GlyphShapingTableEntry {
 
   List<LookupTable> _lookupList = [];
   List<LookupTable> get lookupList => _lookupList;
+  MarkGlyphSetsTable? _markGlyphSets;
+  GlyphClassResolver? _glyphClassResolver;
+  GlyphMarkClassResolver? _markAttachmentClassResolver;
 
   @override
   void readLookupTable(
@@ -20,8 +28,10 @@ class GSUB extends GlyphShapingTableEntry {
       int lookupFlags,
       List<int> subTableOffsets,
       int markFilteringSet) {
-    LookupTable lookupTable =
-        LookupTable(lookupType, lookupFlags, markFilteringSet);
+    final lookupTable = LookupTable(lookupType, lookupFlags, markFilteringSet)
+      ..markGlyphSets = _markGlyphSets
+      ..glyphClassResolver = _glyphClassResolver
+      ..markClassResolver = _markAttachmentClassResolver;
     for (int subTableOffset in subTableOffsets) {
       LookupSubTable subTable =
           lookupTable.readSubTable(reader, lookupTablePos + subTableOffset);
@@ -36,6 +46,27 @@ class GSUB extends GlyphShapingTableEntry {
   void readFeatureVariations(
       ByteOrderSwappingBinaryReader reader, int featureVariationsBeginAt) {
     Utils.warnUnimplemented("GSUB feature variations");
+  }
+
+  void setMarkGlyphSets(MarkGlyphSetsTable? markGlyphSets) {
+    _markGlyphSets = markGlyphSets;
+    for (final lookup in _lookupList) {
+      lookup.markGlyphSets = markGlyphSets;
+    }
+  }
+
+  void setGlyphClassResolver(GlyphClassResolver? resolver) {
+    _glyphClassResolver = resolver;
+    for (final lookup in _lookupList) {
+      lookup.glyphClassResolver = resolver;
+    }
+  }
+
+  void setMarkAttachmentClassResolver(GlyphMarkClassResolver? resolver) {
+    _markAttachmentClassResolver = resolver;
+    for (final lookup in _lookupList) {
+      lookup.markClassResolver = resolver;
+    }
   }
 }
 
@@ -75,9 +106,21 @@ class LookupTable {
   final List<LookupSubTable> _subTables = [];
   List<LookupSubTable> get subTables => _subTables;
 
+  static const int _flagIgnoreBaseGlyphs = 0x0002;
+  static const int _flagIgnoreLigatures = 0x0004;
+  static const int _flagIgnoreMarks = 0x0008;
+  static const int _flagUseMarkFilteringSet = 0x0010;
+
+  MarkGlyphSetsTable? markGlyphSets;
+  GlyphClassResolver? glyphClassResolver;
+  GlyphMarkClassResolver? markClassResolver;
+
   LookupTable(this.lookupType, this.lookupFlags, this.markFilteringSet);
 
   bool doSubstitutionAt(IGlyphIndexList inputGlyphs, int pos, int len) {
+    if (!_shouldProcessGlyph(inputGlyphs[pos])) {
+      return false;
+    }
     for (LookupSubTable subTable in _subTables) {
       // We return after the first substitution, as explained in the spec:
       // "A lookup is finished for a glyph after the client locates the target
@@ -115,6 +158,49 @@ class LookupTable {
       // case 8: return _readLookupType8(reader, subTableStartAt);
     }
     return UnImplementedLookupSubTable("GSUB Lookup Type $lookupType");
+  }
+
+  bool _shouldProcessGlyph(int glyphIndex) {
+    final resolver = glyphClassResolver;
+    GlyphClassKind? glyphClass;
+    if (resolver != null) {
+      glyphClass = resolver(glyphIndex);
+      if ((lookupFlags & _flagIgnoreBaseGlyphs) != 0 &&
+          glyphClass == GlyphClassKind.base) {
+        return false;
+      }
+      if ((lookupFlags & _flagIgnoreLigatures) != 0 &&
+          glyphClass == GlyphClassKind.ligature) {
+        return false;
+      }
+      if ((lookupFlags & _flagIgnoreMarks) != 0 &&
+          glyphClass == GlyphClassKind.mark) {
+        return false;
+      }
+    }
+
+    if (glyphClass == GlyphClassKind.mark &&
+        (lookupFlags & _flagUseMarkFilteringSet) != 0) {
+      final markSets = markGlyphSets;
+      if (markSets == null ||
+          !markSets.containsGlyph(markFilteringSet, glyphIndex)) {
+        return false;
+      }
+    }
+
+    if (glyphClass == GlyphClassKind.mark) {
+      final markAttachmentType = (lookupFlags >> 8) & 0xFF;
+      if (markAttachmentType != 0) {
+        final resolverMark = markClassResolver;
+        final glyphMarkClass =
+            resolverMark != null ? resolverMark(glyphIndex) : 0;
+        if (glyphMarkClass != markAttachmentType) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   // LookupType 1: Single Substitution Subtable

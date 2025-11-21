@@ -1,5 +1,6 @@
 continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart
 continue portando o C:\MyDartProjects\agg\agg-sharp\Typography para dart
+não perca tempo atualizando exemplos
 
 Portar ImageBuffer + blenders (BGRA/RGBA) e RasterBufferAccessors.
 Integrar RasterizerOutlineAA com esses renderers e adicionar testes de renderização simples (retângulo, linha, clip).
@@ -12,7 +13,7 @@ Avançar GSUB/GPOS no GlyphLayout (kerning/marcas) depois de travar pipeline de 
 - PathCommands ajustado para flags combinadas e RoundedRect emitindo fechamento correto.
 - ✅ Utils e Bounds
 - ✅ TableEntry, TableHeader, TableEntryCollection
-- ✅ OpenFontReader (versão inicial)
+- ✅ OpenFontReader (versão inicial, leitura completa de fontes TrueType)
 - ✅ Head Table (Cabeçalho da Fonte)
 - ✅ MaxProfile Table (Perfil Máximo)
 - ✅ HorizontalHeader Table (Cabeçalho Horizontal)
@@ -24,6 +25,10 @@ Avançar GSUB/GPOS no GlyphLayout (kerning/marcas) depois de travar pipeline de 
 - ✅ Glyf Table (Dados dos Glifos - simples e compostos)
 - ✅ Glyph & GlyphPointF (Representação de Glifos)
 - ✅ Typeface (Objeto Central)
+- ✅ GDEF Table (Definição de Glifos)
+- 🔄 GPOS/GSUB agora respeitam LookupFlags (ignore base/lig/marks, mark filtering set e mark attachment type) com dados vindos do GDEF.
+- 🔄 GlyphPosStream passou a carregar a classe de marca de cada glifo e novos testes (`lookup_flag_test.dart`) garantem o comportamento.
+- 🔄 GPOS: suporte inicial para mark-to-mark (LookupType6) e mark-to-ligature (LookupType5) com âncoras e testes dedicados.
 
 - Cobertura completa de todas as funcionalidades implementadas
 - Testes para leitura big-endian, formatos de ponto fixo, e todas as tabelas

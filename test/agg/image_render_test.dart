@@ -12,6 +12,7 @@ import 'package:agg/src/agg/outline_renderer.dart';
 import 'package:agg/src/agg/line_aa_basics.dart';
 import 'package:agg/src/agg/line_profile_aa.dart';
 import 'package:agg/src/agg/agg_gamma_functions.dart';
+import 'package:agg/src/agg/primitives/rectangle_int.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -170,6 +171,40 @@ void main() {
 
     expect(img.getPixel(9, 2).alpha, greaterThan(0));
     expect(img.getPixel(0, 2).alpha, greaterThan(0));
+  });
+
+  test('OutlineRenderer obeys clip box for spans', () {
+    final img = ImageBuffer(10, 4);
+    final profile = LineProfileAA.withWidth(1.0, GammaNone());
+    final renderer = OutlineRenderer(img, profile, Color(0, 0, 0, 255));
+    renderer.clipBox = RectangleInt(2, 0, 7, 3);
+    final outline = RasterizerOutlineAA(renderer);
+
+    outline.moveTo(
+      0 * LineAABasics.line_subpixel_scale,
+      2 * LineAABasics.line_subpixel_scale,
+    );
+    outline.lineTo(
+      9 * LineAABasics.line_subpixel_scale,
+      2 * LineAABasics.line_subpixel_scale,
+    );
+    outline.render();
+
+    int insideHits = 0;
+    int outsideHits = 0;
+    for (int y = 0; y < img.height; y++) {
+      for (int x = 0; x < img.width; x++) {
+        final hit = img.getPixel(x, y).alpha > 0;
+        if (renderer.clipBox!.contains(x, y)) {
+          if (hit) insideHits++;
+        } else {
+          if (hit) outsideHits++;
+        }
+      }
+    }
+
+    expect(insideHits, greaterThan(0));
+    expect(outsideHits, equals(0));
   });
 
   test('OutlineRenderer draws anti-aliased line', () {

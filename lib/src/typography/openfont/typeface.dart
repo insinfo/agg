@@ -5,6 +5,7 @@
 import 'glyph.dart';
 import 'tables/cmap.dart';
 import 'tables/gpos.dart';
+import 'tables/gdef.dart';
 import 'tables/gsub.dart';
 import 'tables/hhea.dart';
 import 'tables/hmtx.dart';
@@ -27,6 +28,7 @@ class Typeface {
   MaxProfile? maxProfile;
   HorizontalHeader? hheaTable;
   String? filename;
+  GDEF? gdefTable;
   GSUB? gsubTable;
   GPOS? gposTable;
 
@@ -41,6 +43,7 @@ class Typeface {
     this.maxProfile,
     this.hheaTable,
     this.filename,
+    this.gdefTable,
     this.gsubTable,
     this.gposTable,
   })  : _nameEntry = nameEntry,
@@ -62,10 +65,11 @@ class Typeface {
     MaxProfile? maxProfile,
     HorizontalHeader? hheaTable,
     String? filename,
+    GDEF? gdefTable,
     GSUB? gsubTable,
     GPOS? gposTable,
   }) {
-    return Typeface._(
+    final typeface = Typeface._(
       nameEntry: nameEntry,
       bounds: bounds,
       unitsPerEm: unitsPerEm,
@@ -76,9 +80,33 @@ class Typeface {
       maxProfile: maxProfile,
       hheaTable: hheaTable,
       filename: filename,
+      gdefTable: gdefTable,
       gsubTable: gsubTable,
       gposTable: gposTable,
     );
+    gdefTable?.fillGlyphData(typeface._glyphs);
+
+    final markGlyphSets = gdefTable?.markGlyphSetsTable;
+    if (markGlyphSets != null) {
+      gposTable?.setMarkGlyphSets(markGlyphSets);
+      gsubTable?.setMarkGlyphSets(markGlyphSets);
+    }
+
+    if (gsubTable != null) {
+      GlyphClassResolver resolver =
+          (int glyphIndex) => (glyphIndex >= 0 && glyphIndex < glyphs.length)
+              ? glyphs[glyphIndex].glyphClass
+              : GlyphClassKind.zero;
+      GlyphMarkClassResolver markResolver =
+          (int glyphIndex) => (glyphIndex >= 0 && glyphIndex < glyphs.length)
+              ? glyphs[glyphIndex].markClassDef
+              : 0;
+      gsubTable
+        ..setGlyphClassResolver(resolver)
+        ..setMarkAttachmentClassResolver(markResolver);
+    }
+
+    return typeface;
   }
 
   // Font metrics from OS/2 table

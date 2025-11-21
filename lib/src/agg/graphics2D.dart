@@ -3,6 +3,7 @@ import 'package:agg/src/agg/primitives/color.dart';
 import 'dart:math' as math;
 import 'package:agg/src/agg/line_aa_basics.dart';
 import 'package:agg/src/agg/outline_image_renderer.dart';
+import 'package:agg/src/agg/rasterizer_compound_aa.dart';
 import 'package:agg/src/agg/rasterizer_outline_aa.dart';
 import 'package:agg/src/agg/scanline_renderer.dart';
 import 'package:agg/src/agg/scanline_rasterizer.dart';
@@ -22,7 +23,7 @@ abstract class IStyleHandler {
 
 enum TransformQuality { Fastest, Best }
 
-/// Minimal graphics context binding an image, rasterizer and scanline cache.
+/// TODO Minimal graphics context binding an image, rasterizer and scanline cache.
 abstract class Graphics2D {
   TransformQuality _imageRenderQuality = TransformQuality.Fastest;
   TransformQuality get imageRenderQuality => _imageRenderQuality;
@@ -148,6 +149,12 @@ class BasicGraphics2D extends Graphics2D {
   }) {
     final path = _arcPath(cx, cy, rx, ry, startAngle, startAngle + sweepAngle, closeToCenter: false);
     _strokePath(path, color, thickness: thickness);
+  }
+
+  /// Render a pre-built compound shape.
+  void renderCompound(RasterizerCompoundAa compound) {
+    compound.render(destImage);
+    destImage.markImageChanged();
   }
 
   /// Draw filled text using the Typography pipeline. [x], [y] represent the

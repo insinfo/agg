@@ -7,6 +7,7 @@ class GlyphPos {
   final int inputOffset;
   final int glyphIndex;
   final GlyphClassKind glyphClass;
+  final int markAttachmentClass;
 
   int xoffset;
   int yoffset;
@@ -16,6 +17,7 @@ class GlyphPos {
     required this.inputOffset,
     required this.glyphIndex,
     required this.glyphClass,
+    required this.markAttachmentClass,
     required this.advanceW,
     this.xoffset = 0,
     this.yoffset = 0,
@@ -29,8 +31,13 @@ class GlyphPosStream implements IGlyphPositions {
 
   int get count => _glyphPosList.length;
 
+  @override
   GlyphClassKind getGlyphClassKind(int index) =>
       _glyphPosList[index].glyphClass;
+
+  @override
+  int getGlyphMarkAttachmentType(int index) =>
+      _glyphPosList[index].markAttachmentClass;
 
   GlyphPos getGlyph(int index) => _glyphPosList[index];
 
@@ -69,6 +76,7 @@ class GlyphPosStream implements IGlyphPositions {
       inputOffset: inputOffset,
       glyphIndex: glyphIndex,
       glyphClass: glyph.glyphClass,
+      markAttachmentClass: glyph.markClassDef,
       advanceW: advanceWidth,
     ));
   }

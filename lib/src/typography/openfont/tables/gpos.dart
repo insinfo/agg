@@ -1,6 +1,8 @@
 import '../../../typography/io/byte_order_swapping_reader.dart';
+import '../glyph.dart';
 import 'coverage_table.dart';
 import 'class_def_table.dart';
+import 'gdef.dart';
 import 'glyph_shaping_table_entry.dart';
 import 'utils.dart';
 
@@ -11,6 +13,10 @@ abstract class IGlyphPositions {
   int getGlyphIndex(int index);
 
   int getGlyphAdvanceWidth(int index);
+
+  GlyphClassKind getGlyphClassKind(int index);
+
+  int getGlyphMarkAttachmentType(int index);
 
   void appendGlyphAdvance(int index, int appendAdvX, int appendAdvY);
 
@@ -25,6 +31,7 @@ class GPOS extends GlyphShapingTableEntry {
 
   final List<LookupTable> _lookupList = [];
   List<LookupTable> get lookupList => _lookupList;
+  MarkGlyphSetsTable? _markGlyphSets;
 
   @override
   void readLookupTable(
@@ -36,6 +43,7 @@ class GPOS extends GlyphShapingTableEntry {
     int markFilteringSet,
   ) {
     final lookupTable = LookupTable(lookupType, lookupFlags, markFilteringSet);
+    lookupTable.setMarkGlyphSets(_markGlyphSets);
     for (final subTableOffset in subTableOffsets) {
       final subTable =
           lookupTable.readSubTable(reader, lookupTablePos + subTableOffset);
@@ -51,6 +59,13 @@ class GPOS extends GlyphShapingTableEntry {
   ) {
     Utils.warnUnimplemented('GPOS feature variations');
   }
+
+  void setMarkGlyphSets(MarkGlyphSetsTable? markGlyphSets) {
+    _markGlyphSets = markGlyphSets;
+    for (final lookup in _lookupList) {
+      lookup.setMarkGlyphSets(markGlyphSets);
+    }
+  }
 }
 
 /// Lookup table container for GPOS.
@@ -59,6 +74,11 @@ class LookupTable {
   final int lookupFlags;
   final int markFilteringSet;
   final List<LookupSubTable> subTables = [];
+  MarkGlyphSetsTable? _markGlyphSets;
+  static const int _flagIgnoreBaseGlyphs = 0x0002;
+  static const int _flagIgnoreLigatures = 0x0004;
+  static const int _flagIgnoreMarks = 0x0008;
+  static const int _flagUseMarkFilteringSet = 0x0010;
 
   LookupTable(this.lookupType, this.lookupFlags, this.markFilteringSet);
 
@@ -66,6 +86,51 @@ class LookupTable {
     for (final subTable in subTables) {
       subTable.doGlyphPosition(glyphPositions, startAt, len);
     }
+  }
+
+  void setMarkGlyphSets(MarkGlyphSetsTable? markGlyphSets) {
+    _markGlyphSets = markGlyphSets;
+  }
+
+  bool shouldProcessGlyph(IGlyphPositions glyphPositions, int index) {
+    final glyphClass = glyphPositions.getGlyphClassKind(index);
+
+    if ((lookupFlags & _flagIgnoreBaseGlyphs) != 0 &&
+        glyphClass == GlyphClassKind.base) {
+      return false;
+    }
+
+    if ((lookupFlags & _flagIgnoreLigatures) != 0 &&
+        glyphClass == GlyphClassKind.ligature) {
+      return false;
+    }
+
+    if ((lookupFlags & _flagIgnoreMarks) != 0 &&
+        glyphClass == GlyphClassKind.mark) {
+      return false;
+    }
+
+    if ((lookupFlags & _flagUseMarkFilteringSet) != 0 &&
+        glyphClass == GlyphClassKind.mark) {
+      if (_markGlyphSets == null) {
+        return false;
+      }
+      final glyphId = glyphPositions.getGlyphIndex(index);
+      if (!_markGlyphSets!.containsGlyph(markFilteringSet, glyphId)) {
+        return false;
+      }
+    }
+
+    final markAttachmentType = (lookupFlags >> 8) & 0xFF;
+    if (markAttachmentType != 0 && glyphClass == GlyphClassKind.mark) {
+      final glyphMarkClass =
+          glyphPositions.getGlyphMarkAttachmentType(index);
+      if (glyphMarkClass != markAttachmentType) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   LookupSubTable readSubTable(
@@ -79,26 +144,24 @@ class LookupTable {
         return _readLookupType2(reader, subTableStartAt);
       case 3:
         // Contextual Positioning (not yet implemented)
-        return UnimplementedLookupSubTable('GPOS Lookup Type 3');
+        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 3');
       case 4:
         return _readLookupType4(reader, subTableStartAt);
       case 5:
-        // Mark-to-Ligature (not yet implemented)
-        return UnimplementedLookupSubTable('GPOS Lookup Type 5');
+        return _readLookupType5(reader, subTableStartAt);
       case 6:
-        // Mark-to-Mark (not yet implemented)
-        return UnimplementedLookupSubTable('GPOS Lookup Type 6');
+        return _readLookupType6(reader, subTableStartAt);
       case 7:
         // Contextual Positioning (extended) (not yet implemented)
-        return UnimplementedLookupSubTable('GPOS Lookup Type 7');
+        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 7');
       case 8:
         // Chaining Contextual Positioning (not yet implemented)
-        return UnimplementedLookupSubTable('GPOS Lookup Type 8');
+        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 8');
       case 9:
         // Extension Positioning (not yet implemented)
-        return UnimplementedLookupSubTable('GPOS Lookup Type 9');
+        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 9');
       default:
-        return UnimplementedLookupSubTable('GPOS Lookup Type $lookupType');
+        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type $lookupType');
     }
   }
 
@@ -116,7 +179,10 @@ class LookupTable {
         final coverageTable =
             CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
         return LkSubTableType1(
-            singleValue: singleValue, coverageTable: coverageTable);
+          owner: this,
+          singleValue: singleValue,
+          coverageTable: coverageTable,
+        );
       case 2:
         final coverageOffset = reader.readUInt16();
         final valueFormat = reader.readUInt16();
@@ -127,9 +193,13 @@ class LookupTable {
         final coverageTable =
             CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
         return LkSubTableType1(
-            multiValues: values, coverageTable: coverageTable);
+          owner: this,
+          multiValues: values,
+          coverageTable: coverageTable,
+        );
       default:
-        return UnimplementedLookupSubTable('GPOS Lookup Type 1 Format $format');
+        return UnimplementedLookupSubTable(
+            this, 'GPOS Lookup Type 1 Format $format');
     }
   }
 
@@ -156,7 +226,7 @@ class LookupTable {
         });
         final coverageTable =
             CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
-        return LkSubTableType2Fmt1(coverageTable, pairSets);
+        return LkSubTableType2Fmt1(this, coverageTable, pairSets);
       case 2:
         final coverageOffset = reader.readUInt16();
         final value1Format = reader.readUInt16();
@@ -185,13 +255,15 @@ class LookupTable {
             ClassDefTable.createFrom(reader, subTableStartAt + classDef2Offset);
 
         return LkSubTableType2Fmt2(
+          this,
           class1Records,
           classDef1,
           classDef2,
           coverageTable,
         );
       default:
-        return UnimplementedLookupSubTable('GPOS Lookup Type 2 Format $format');
+        return UnimplementedLookupSubTable(
+            this, 'GPOS Lookup Type 2 Format $format');
     }
   }
 
@@ -202,7 +274,8 @@ class LookupTable {
     reader.seek(subTableStartAt);
     final format = reader.readUInt16();
     if (format != 1) {
-      return UnimplementedLookupSubTable('GPOS Lookup Type 4 Format $format');
+      return UnimplementedLookupSubTable(
+          this, 'GPOS Lookup Type 4 Format $format');
     }
 
     final markCoverageOffset = reader.readUInt16();
@@ -211,7 +284,7 @@ class LookupTable {
     final markArrayOffset = reader.readUInt16();
     final baseArrayOffset = reader.readUInt16();
 
-    final lookup = LkSubTableType4();
+    final lookup = LkSubTableType4(this);
     lookup.markCoverageTable =
         CoverageTable.createFrom(reader, subTableStartAt + markCoverageOffset);
     lookup.baseCoverageTable =
@@ -222,16 +295,96 @@ class LookupTable {
         reader, subTableStartAt + baseArrayOffset, markClassCount);
     return lookup;
   }
+
+  LookupSubTable _readLookupType5(
+    ByteOrderSwappingBinaryReader reader,
+    int subTableStartAt,
+  ) {
+    reader.seek(subTableStartAt);
+    final format = reader.readUInt16();
+    switch (format) {
+      case 1:
+        final markCoverageOffset = reader.readUInt16();
+        final ligatureCoverageOffset = reader.readUInt16();
+        final markClassCount = reader.readUInt16();
+        final markArrayOffset = reader.readUInt16();
+        final ligatureArrayOffset = reader.readUInt16();
+
+        final markCoverage =
+            CoverageTable.createFrom(reader, subTableStartAt + markCoverageOffset);
+        final ligCoverage =
+            CoverageTable.createFrom(reader, subTableStartAt + ligatureCoverageOffset);
+        final markArray =
+            MarkArrayTable.createFrom(reader, subTableStartAt + markArrayOffset);
+        final ligatureArray = LigatureArrayTable.createFrom(
+          reader,
+          subTableStartAt + ligatureArrayOffset,
+          markClassCount,
+        );
+        return LkSubTableType5(
+          this,
+          markCoverage,
+          ligCoverage,
+          markArray,
+          ligatureArray,
+        );
+      default:
+        return UnimplementedLookupSubTable(
+            this, 'GPOS Lookup Type 5 Format $format');
+    }
+  }
+
+  LookupSubTable _readLookupType6(
+    ByteOrderSwappingBinaryReader reader,
+    int subTableStartAt,
+  ) {
+    reader.seek(subTableStartAt);
+    final format = reader.readUInt16();
+    switch (format) {
+      case 1:
+        final mark1CoverageOffset = reader.readUInt16();
+        final mark2CoverageOffset = reader.readUInt16();
+        final markClassCount = reader.readUInt16();
+        final mark1ArrayOffset = reader.readUInt16();
+        final mark2ArrayOffset = reader.readUInt16();
+
+        final mark1Coverage =
+            CoverageTable.createFrom(reader, subTableStartAt + mark1CoverageOffset);
+        final mark2Coverage =
+            CoverageTable.createFrom(reader, subTableStartAt + mark2CoverageOffset);
+        final markArray =
+            MarkArrayTable.createFrom(reader, subTableStartAt + mark1ArrayOffset);
+        final mark2Array = Mark2ArrayTable.createFrom(
+          reader,
+          subTableStartAt + mark2ArrayOffset,
+          markClassCount,
+        );
+
+        return LkSubTableType6(
+          this,
+          mark1Coverage,
+          mark2Coverage,
+          markArray,
+          mark2Array,
+        );
+      default:
+        return UnimplementedLookupSubTable(
+            this, 'GPOS Lookup Type 6 Format $format');
+    }
+  }
 }
 
 abstract class LookupSubTable {
+  final LookupTable owner;
+  LookupSubTable(this.owner);
+
   void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len);
 }
 
 class UnimplementedLookupSubTable extends LookupSubTable {
   final String message;
 
-  UnimplementedLookupSubTable(this.message) {
+  UnimplementedLookupSubTable(LookupTable owner, this.message) : super(owner) {
     Utils.warnUnimplemented(message);
   }
 
@@ -247,15 +400,19 @@ class LkSubTableType1 extends LookupSubTable {
   final CoverageTable coverageTable;
 
   LkSubTableType1({
+    required LookupTable owner,
     this.singleValue,
     this.multiValues,
     required this.coverageTable,
-  });
+  }) : super(owner);
 
   @override
   void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
     final limit = glyphPositions.count;
     for (var i = 0; i < limit; i++) {
+      if (!owner.shouldProcessGlyph(glyphPositions, i)) {
+        continue;
+      }
       final glyphIndex = glyphPositions.getGlyphIndex(i);
       final coverageIndex = coverageTable.findPosition(glyphIndex);
       if (coverageIndex < 0) {
@@ -287,18 +444,26 @@ class LkSubTableType2Fmt1 extends LookupSubTable {
   final CoverageTable coverageTable;
   final List<PairSetTable> pairSetTables;
 
-  LkSubTableType2Fmt1(this.coverageTable, this.pairSetTables);
+  LkSubTableType2Fmt1(
+      LookupTable owner, this.coverageTable, this.pairSetTables)
+      : super(owner);
 
   @override
   void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
     final limit = glyphPositions.count - 1;
     for (var i = 0; i < limit; i++) {
+      if (!owner.shouldProcessGlyph(glyphPositions, i)) {
+        continue;
+      }
       final coverageIndex =
           coverageTable.findPosition(glyphPositions.getGlyphIndex(i));
       if (coverageIndex < 0) {
         continue;
       }
       final pairTable = pairSetTables[coverageIndex];
+      if (!owner.shouldProcessGlyph(glyphPositions, i + 1)) {
+        continue;
+      }
       final nextGlyphIndex = glyphPositions.getGlyphIndex(i + 1);
       final pair = pairTable.findPairSet(nextGlyphIndex);
       if (pair == null) {
@@ -335,22 +500,29 @@ class LkSubTableType2Fmt2 extends LookupSubTable {
   final CoverageTable coverageTable;
 
   LkSubTableType2Fmt2(
+    LookupTable owner,
     this.class1Records,
     this.class1Def,
     this.class2Def,
     this.coverageTable,
-  );
+  ) : super(owner);
 
   @override
   void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
     final limit = glyphPositions.count - 1;
     for (var i = 0; i < limit; i++) {
+      if (!owner.shouldProcessGlyph(glyphPositions, i)) {
+        continue;
+      }
       final glyph1Index = glyphPositions.getGlyphIndex(i);
       final record1Index = coverageTable.findPosition(glyph1Index);
 
       if (record1Index > -1) {
         final class1No = class1Def.getClassValue(glyph1Index);
         if (class1No > -1 && class1No < class1Records.length) {
+          if (!owner.shouldProcessGlyph(glyphPositions, i + 1)) {
+            continue;
+          }
           final glyph2Index = glyphPositions.getGlyphIndex(i + 1);
           final class2No = class2Def.getClassValue(glyph2Index);
 
@@ -504,10 +676,15 @@ class LkSubTableType4 extends LookupSubTable {
   late MarkArrayTable markArrayTable;
   late BaseArrayTable baseArrayTable;
 
+  LkSubTableType4(LookupTable owner) : super(owner);
+
   @override
   void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
     final count = glyphPositions.count;
     for (var i = 1; i < count; ++i) {
+      if (!owner.shouldProcessGlyph(glyphPositions, i)) {
+        continue;
+      }
       final markCoverageIndex =
           markCoverageTable.findPosition(glyphPositions.getGlyphIndex(i));
       if (markCoverageIndex < 0) {
@@ -664,6 +841,201 @@ class BaseRecord {
     if (classId < 0 || classId >= anchors.length) {
       return null;
     }
+    return anchors[classId];
+  }
+}
+
+class LkSubTableType5 extends LookupSubTable {
+  final CoverageTable markCoverageTable;
+  final CoverageTable ligatureCoverageTable;
+  final MarkArrayTable markArrayTable;
+  final LigatureArrayTable ligatureArrayTable;
+
+  LkSubTableType5(
+    LookupTable owner,
+    this.markCoverageTable,
+    this.ligatureCoverageTable,
+    this.markArrayTable,
+    this.ligatureArrayTable,
+  ) : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    final count = glyphPositions.count;
+    for (var i = 1; i < count; i++) {
+      if (!owner.shouldProcessGlyph(glyphPositions, i)) continue;
+      final markIdx = glyphPositions.getGlyphIndex(i);
+      final markCoverageIndex = markCoverageTable.findPosition(markIdx);
+      if (markCoverageIndex < 0) continue;
+
+      final prevIndex = i - 1;
+      if (!owner.shouldProcessGlyph(glyphPositions, prevIndex)) continue;
+      final ligIndex = glyphPositions.getGlyphIndex(prevIndex);
+      final ligCoverageIndex = ligatureCoverageTable.findPosition(ligIndex);
+      if (ligCoverageIndex < 0) continue;
+
+      final markClass = markArrayTable.getMarkClass(markCoverageIndex);
+      final markAnchor = markArrayTable.getAnchorPoint(markCoverageIndex);
+      final ligAttach = ligatureArrayTable.getLigatureAttach(ligCoverageIndex);
+      final component = ligAttach.components.isNotEmpty
+          ? ligAttach.components.first
+          : null;
+      final ligAnchor = component?.getAnchor(markClass);
+      if (markAnchor == null || ligAnchor == null) continue;
+
+      final offsetX = ligAnchor.xcoord - markAnchor.xcoord;
+      final offsetY = ligAnchor.ycoord - markAnchor.ycoord;
+      glyphPositions.appendGlyphOffset(i, offsetX, offsetY);
+    }
+  }
+}
+
+class LkSubTableType6 extends LookupSubTable {
+  final CoverageTable mark1CoverageTable;
+  final CoverageTable mark2CoverageTable;
+  final MarkArrayTable markArrayTable;
+  final Mark2ArrayTable mark2ArrayTable;
+
+  LkSubTableType6(
+    LookupTable owner,
+    this.mark1CoverageTable,
+    this.mark2CoverageTable,
+    this.markArrayTable,
+    this.mark2ArrayTable,
+  ) : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    final count = glyphPositions.count;
+    for (var i = 1; i < count; i++) {
+      if (!owner.shouldProcessGlyph(glyphPositions, i)) continue;
+      final mark1Glyph = glyphPositions.getGlyphIndex(i);
+      final mark1Cov = mark1CoverageTable.findPosition(mark1Glyph);
+      if (mark1Cov < 0) continue;
+
+      final prevIndex = i - 1;
+      if (!owner.shouldProcessGlyph(glyphPositions, prevIndex)) continue;
+      final mark2Glyph = glyphPositions.getGlyphIndex(prevIndex);
+      final mark2Cov = mark2CoverageTable.findPosition(mark2Glyph);
+      if (mark2Cov < 0) continue;
+
+      final markClass = markArrayTable.getMarkClass(mark1Cov);
+      final markAnchor = markArrayTable.getAnchorPoint(mark1Cov);
+      final mark2Record = mark2ArrayTable.getRecord(mark2Cov);
+      final mark2Anchor = mark2Record.getAnchor(markClass);
+      if (markAnchor == null || mark2Anchor == null) continue;
+
+      final offsetX = mark2Anchor.xcoord - markAnchor.xcoord;
+      final offsetY = mark2Anchor.ycoord - markAnchor.ycoord;
+      glyphPositions.appendGlyphOffset(i, offsetX, offsetY);
+    }
+  }
+}
+
+class LigatureArrayTable {
+  final List<LigatureAttachTable> _records;
+
+  LigatureArrayTable(this._records);
+
+  static LigatureArrayTable createFrom(
+    ByteOrderSwappingBinaryReader reader,
+    int beginAt,
+    int classCount,
+  ) {
+    reader.seek(beginAt);
+    final ligCount = reader.readUInt16();
+    final offsets = Utils.readUInt16Array(reader, ligCount);
+    final records = List<LigatureAttachTable>.generate(ligCount, (index) {
+      return LigatureAttachTable.createFrom(
+          reader, beginAt + offsets[index], classCount);
+    });
+    return LigatureArrayTable(records);
+  }
+
+  LigatureAttachTable getLigatureAttach(int index) => _records[index];
+}
+
+class LigatureAttachTable {
+  final List<LigatureComponentRecord> components;
+
+  LigatureAttachTable(this.components);
+
+  static LigatureAttachTable createFrom(
+    ByteOrderSwappingBinaryReader reader,
+    int beginAt,
+    int classCount,
+  ) {
+    reader.seek(beginAt);
+    final compCount = reader.readUInt16();
+    final offsets = Utils.readUInt16Array(reader, compCount);
+    final comps = List<LigatureComponentRecord>.generate(compCount, (i) {
+      return LigatureComponentRecord.createFrom(
+          reader, beginAt + offsets[i], classCount);
+    });
+    return LigatureAttachTable(comps);
+  }
+}
+
+class LigatureComponentRecord {
+  final List<AnchorPoint?> anchors;
+
+  LigatureComponentRecord(this.anchors);
+
+  static LigatureComponentRecord createFrom(
+    ByteOrderSwappingBinaryReader reader,
+    int beginAt,
+    int classCount,
+  ) {
+    reader.seek(beginAt);
+    final anchorOffsets = Utils.readUInt16Array(reader, classCount);
+    final anchors = List<AnchorPoint?>.generate(classCount, (classIdx) {
+      final off = anchorOffsets[classIdx];
+      if (off == 0) return null;
+      return AnchorPoint.createFrom(reader, beginAt + off);
+    });
+    return LigatureComponentRecord(anchors);
+  }
+
+  AnchorPoint? getAnchor(int classId) {
+    if (classId < 0 || classId >= anchors.length) return null;
+    return anchors[classId];
+  }
+}
+
+class Mark2ArrayTable {
+  final List<Mark2Record> records;
+
+  Mark2ArrayTable(this.records);
+
+  static Mark2ArrayTable createFrom(
+    ByteOrderSwappingBinaryReader reader,
+    int beginAt,
+    int classCount,
+  ) {
+    reader.seek(beginAt);
+    final mark2Count = reader.readUInt16();
+    final offsets = Utils.readUInt16Array(reader, mark2Count * classCount);
+    final recs = List<Mark2Record>.generate(mark2Count, (markIndex) {
+      final anchors = List<AnchorPoint?>.generate(classCount, (classIdx) {
+        final offset = offsets[markIndex * classCount + classIdx];
+        if (offset == 0) return null;
+        return AnchorPoint.createFrom(reader, beginAt + offset);
+      });
+      return Mark2Record(anchors);
+    });
+    return Mark2ArrayTable(recs);
+  }
+
+  Mark2Record getRecord(int index) => records[index];
+}
+
+class Mark2Record {
+  final List<AnchorPoint?> anchors;
+
+  Mark2Record(this.anchors);
+
+  AnchorPoint? getAnchor(int classId) {
+    if (classId < 0 || classId >= anchors.length) return null;
     return anchors[classId];
   }
 }

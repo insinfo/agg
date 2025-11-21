@@ -16,6 +16,7 @@ import 'package:agg/src/typography/openfont/tables/cmap.dart';
 import 'package:agg/src/typography/openfont/tables/loca.dart';
 import 'package:agg/src/typography/openfont/tables/table_entry.dart';
 import 'package:agg/src/typography/openfont/tables/utils.dart';
+import 'package:agg/src/typography/openfont/tables/gdef.dart';
 
 void main() {
   group('ByteOrderSwappingBinaryReader', () {
@@ -488,6 +489,48 @@ void main() {
       expect(hmtx.getAdvanceWidth(10), equals(0));
       expect(hmtx.getLeftSideBearing(-1), equals(0));
       expect(hmtx.getLeftSideBearing(10), equals(0));
+    });
+  });
+
+  group('GDEF Table', () {
+    test('fills glyph classes and mark classes', () {
+      final builder = BytesBuilder();
+      // Header
+      builder.add(encodeUInt16(1)); // major
+      builder.add(encodeUInt16(0)); // minor
+      builder.add(encodeUInt16(12)); // glyphClassDef offset
+      builder.add(encodeUInt16(0)); // attach list offset
+      builder.add(encodeUInt16(0)); // lig caret list offset
+      builder.add(encodeUInt16(22)); // mark attachment class offset
+
+      // Glyph class definition (format 1)
+      builder.add(encodeUInt16(1)); // format
+      builder.add(encodeUInt16(1)); // start glyph
+      builder.add(encodeUInt16(2)); // glyph count
+      builder.add(encodeUInt16(1)); // glyph #1 => base
+      builder.add(encodeUInt16(3)); // glyph #2 => mark
+
+      // Mark attachment class definition (format 1)
+      builder.add(encodeUInt16(1)); // format
+      builder.add(encodeUInt16(2)); // start glyph
+      builder.add(encodeUInt16(2)); // glyph count
+      builder.add(encodeUInt16(1)); // glyph #2 => mark class 1
+      builder.add(encodeUInt16(2)); // glyph #3 => mark class 2
+
+      final data = Uint8List.fromList(builder.toBytes());
+      final reader = ByteOrderSwappingBinaryReader(data);
+
+      final gdef = GDEF();
+      gdef.readContentFrom(reader);
+
+      final glyphs =
+          List<Glyph>.generate(6, (index) => Glyph.empty(index));
+      gdef.fillGlyphData(glyphs);
+
+      expect(glyphs[1].glyphClass, equals(GlyphClassKind.base));
+      expect(glyphs[2].glyphClass, equals(GlyphClassKind.mark));
+      expect(glyphs[2].markClassDef, equals(1));
+      expect(glyphs[3].markClassDef, equals(2));
     });
   });
 
@@ -982,6 +1025,15 @@ void main() {
 // Helper function to encode a 16-bit unsigned integer as big-endian bytes
 List<int> encodeUInt16(int value) {
   return [(value >> 8) & 0xFF, value & 0xFF];
+}
+
+List<int> encodeUInt32(int value) {
+  return [
+    (value >> 24) & 0xFF,
+    (value >> 16) & 0xFF,
+    (value >> 8) & 0xFF,
+    value & 0xFF,
+  ];
 }
 
 // Helper function to encode a string as UTF-16 Big Endian

@@ -3,8 +3,22 @@
 // Ported to Dart by insinfo
 
 import 'dart:typed_data';
-import 'package:agg/src/typography/io/byte_order_swapping_reader.dart';
-import 'package:agg/src/typography/openfont/tables/table_entry.dart';
+
+import '../io/byte_order_swapping_reader.dart';
+import 'typeface.dart';
+import 'tables/cmap.dart';
+import 'tables/gdef.dart';
+import 'tables/glyf.dart';
+import 'tables/gpos.dart';
+import 'tables/gsub.dart';
+import 'tables/head.dart';
+import 'tables/hhea.dart';
+import 'tables/hmtx.dart';
+import 'tables/loca.dart';
+import 'tables/maxp.dart';
+import 'tables/name_entry.dart';
+import 'tables/os2.dart';
+import 'tables/table_entry.dart';
 
 /// Flags for controlling what data to read from a font file
 enum ReadFlags {
@@ -84,6 +98,42 @@ class FontCollectionHeader {
 /// Reader for OpenType/TrueType font files
 class OpenFontReader {
   OpenFontReader();
+
+  /// Read a full typeface from raw font bytes.
+  /// Supports basic TrueType fonts (glyf outlines). TTC/WOFF are not yet handled.
+  Typeface? read(
+    Uint8List data, {
+    int offset = 0,
+    ReadFlags readFlags = ReadFlags.full,
+  }) {
+    final reader = ByteOrderSwappingBinaryReader(data);
+    if (offset != 0) {
+      reader.seek(offset);
+    }
+
+    final majorVersion = reader.readUInt16();
+    final minorVersion = reader.readUInt16();
+
+    if (KnownFontFiles.isTtcf(majorVersion, minorVersion) ||
+        KnownFontFiles.isWoff(majorVersion, minorVersion) ||
+        KnownFontFiles.isWoff2(majorVersion, minorVersion)) {
+      throw UnimplementedError(
+        'Font collections and WOFF formats are not supported yet',
+      );
+    }
+
+    final tableCount = reader.readUInt16();
+    reader.readUInt16(); // searchRange
+    reader.readUInt16(); // entrySelector
+    reader.readUInt16(); // rangeShift
+
+    final tables = TableEntryCollection();
+    for (var i = 0; i < tableCount; i++) {
+      tables.addEntry(UnreadTableEntry(_readTableHeader(reader)));
+    }
+
+    return _readTypefaceFromTables(tables, reader);
+  }
 
   /// Read preview information without loading the entire font
   PreviewFontInfo readPreview(Uint8List data) {
@@ -222,5 +272,63 @@ class OpenFontReader {
       // Table was already read
       return found as T;
     }
+  }
+
+  Typeface? _readTypefaceFromTables(
+    TableEntryCollection tables,
+    ByteOrderSwappingBinaryReader reader,
+  ) {
+    final os2 = readTableIfExists(tables, reader, OS2Table());
+    final nameEntry = readTableIfExists(tables, reader, NameEntry());
+    final head = readTableIfExists(tables, reader, Head());
+    final maxProfile = readTableIfExists(tables, reader, MaxProfile());
+    final hhea = readTableIfExists(tables, reader, HorizontalHeader());
+
+    if (os2 == null ||
+        nameEntry == null ||
+        head == null ||
+        maxProfile == null ||
+        hhea == null) {
+      return null;
+    }
+
+    final hmtx = readTableIfExists(
+      tables,
+      reader,
+      HorizontalMetrics(hhea.horizontalMetricsCount, maxProfile.glyphCount),
+    );
+    final cmap = readTableIfExists(tables, reader, Cmap());
+    final glyphLocations = readTableIfExists(
+      tables,
+      reader,
+      GlyphLocations(maxProfile.glyphCount, head.wideGlyphLocations),
+    );
+    final glyf = glyphLocations != null
+        ? readTableIfExists(tables, reader, Glyf(glyphLocations))
+        : null;
+
+    if (hmtx == null || glyf == null || glyf.glyphs == null) {
+      return null;
+    }
+
+    final gdef = readTableIfExists(tables, reader, GDEF());
+    final gsub = readTableIfExists(tables, reader, GSUB());
+    final gpos = readTableIfExists(tables, reader, GPOS());
+
+    final typeface = Typeface.fromTrueType(
+      nameEntry: nameEntry,
+      bounds: head.bounds,
+      unitsPerEm: head.unitsPerEm,
+      glyphs: glyf.glyphs!,
+      horizontalMetrics: hmtx,
+      os2Table: os2,
+      cmapTable: cmap,
+      maxProfile: maxProfile,
+      hheaTable: hhea,
+      gdefTable: gdef,
+      gsubTable: gsub,
+      gposTable: gpos,
+    );
+    return typeface;
   }
 }

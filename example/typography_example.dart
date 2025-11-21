@@ -1,14 +1,7 @@
 // Exemplo de uso da biblioteca Typography
 // Este exemplo demonstra como usar as funcionalidades básicas implementadas
 
-import 'package:agg/src/typography/openfont/typeface.dart';
-import 'package:agg/src/typography/openfont/glyph.dart';
-import 'package:agg/src/typography/openfont/tables/cmap.dart';
-import 'package:agg/src/typography/openfont/tables/hmtx.dart';
-import 'package:agg/src/typography/openfont/tables/name_entry.dart';
-import 'package:agg/src/typography/openfont/tables/os2.dart';
-import 'package:agg/src/typography/openfont/tables/utils.dart';
-import 'package:agg/src/typography/text_layout/glyph_layout.dart';
+import 'package:agg/typography.dart';
 
 void main() {
   print('=== Typography Library Example ===\n');
