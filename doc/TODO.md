@@ -3,8 +3,8 @@
 ## Status Geral
 **Projeto:** Porte da biblioteca Typography (agg-sharp) de C# para Dart  
 **Data de Início:** 07 de Novembro de 2025  
-**Status Atual:** Em Progresso - Fase 3 (AGG Core) - 5%
-
+**Status Atual:** Em Progresso - Fase 3 (AGG Core) - 30%
+continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart e validando rasterização
 ---
 
 ## ✅ Fase 0: Estrutura de Pastas e Utilitários Essenciais - CONCLUÍDO
@@ -196,7 +196,8 @@
 
 ### Transform
 - [x] `Affine` - `lib/src/agg/transform/affine.dart`
-- [ ] `Perspective` - `lib/src/agg/transform/perspective.dart`
+- [x] `Perspective` - `lib/src/agg/transform/perspective.dart`
+- [x] `Bilinear` - `lib/src/agg/transform/bilinear.dart`
 
 ### Vertex Source
 - [x] `PathCommands` - `lib/src/agg/vertex_source/path_commands.dart`
@@ -208,12 +209,22 @@
 - [x] `RoundedRect` - `lib/src/agg/vertex_source/rounded_rect.dart`
 
 ### Rasterizer
-- [ ] `RasterizerScanline`
-- [ ] `Scanline`
+- [ ] `ImageLineRenderer` (faltar caps/joins fieis, spans via accessors)
+- [x] `RasterizerCellsAA` (acumulador AA completo)
+- [x] `VectorClipper` / `ClipLiangBarsky` (clipping de linhas)
+- [x] `RasterizerScanline` (core + gamma)
+- [x] `Scanline` caches (bin/packed/unpacked) + hit-test
+- [ ] `Outline AA`
+  - [x] `line_aa_basics.dart`
+  - [x] `line_aa_vertex_sequence.dart`
+  - [x] `agg_dda_line.dart`
+  - [x] `rasterizer_outline_aa.dart` (estrutura; renderer pendente)
+  - [x] `scanline_bin.dart` / `scanline_packed8.dart` / `scanline_unpacked8.dart`
+  - [x] `scanline_hit_test.dart` (utilitário)
 
 ### Image
-- [ ] `ImageBuffer`
-- [ ] `Blenders`
+- [x] `ImageBuffer` (RGBA8888 básico)
+- [x] `Blenders` (RGBA straight alpha inicial)
 
 ---
 
@@ -229,6 +240,7 @@
 ## 📊 Métricas do Projeto
 
 ### Arquivos Portados: 19/50+ (38%)
+Atual: ~26/50 (52%) com rasterização AA, ImageBuffer, accessors e caps AA básicos.
 
 **Fase 1 - Análise de Fontes:**
 - ByteOrderSwappingBinaryReader ✅
@@ -256,7 +268,7 @@
 - **GSUB** ✅ (parcial)
 - ScriptList, FeatureList, CoverageTable, ClassDefTable ✅
 
-### Testes: 61/61 passando (100%)
+### Testes: 69/69 passando (100%)
 
 **Fase 1 - OpenFont Tables (47 testes):**
 - ByteOrderSwappingBinaryReader: 5 testes ✅
@@ -281,17 +293,11 @@
 - **GlyphLayout: 5 testes** ✅
 
 ### Próximos Passos Imediatos
-1. ✅ Portar tabela OS/2 (os2.dart) - CONCLUÍDO
-2. ✅ Portar tabela HorizontalMetrics (hmtx.dart) - CONCLUÍDO
-3. ✅ Portar tabela NameEntry (name_entry.dart) - CONCLUÍDO
-4. ✅ Portar tabela Cmap (cmap.dart) - CONCLUÍDO
-5. ✅ Portar tabelas de Glyph (loca.dart, glyf.dart, glyph.dart) - CONCLUÍDO
-6. ✅ Implementar Typeface básico (objeto central que integra todas as tabelas) - CONCLUÍDO
-7. ✅ Começar Fase 2 - Motor de Layout de Texto (versão básica) - CONCLUÍDO
-8. **PRÓXIMO:** Implementar features OpenType avançadas
-   - Tabela GSUB (substituição de glifos - ligaduras, etc.)
-   - Tabela GPOS (posicionamento - kerning, etc.)
-   - Integração com GlyphLayout
+1. Finalizar renderer para `RasterizerOutlineAA` (LineRenderer + blend).
+2. Portar `ScanlineRenderer`/`ImageLineRenderer` e `RasterBufferAccessors` para gerar pixels.
+3. Portar `ImageBuffer`/blenders e validar saídas das scanlines.
+4. Avançar GSUB/GPOS integração completa no GlyphLayout (kerning/marks).
+
 
 ---
 
@@ -316,7 +322,7 @@ Nenhum no momento.
 
 ---
 
-**Última Atualização:** 07 de Novembro de 2025 - 21:00  
+**Última Atualização:** 20 de Novembro de 2025 - 19:20  
 **Responsável:** insinfo
 
 ---

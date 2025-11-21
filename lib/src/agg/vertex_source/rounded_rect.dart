@@ -134,118 +134,132 @@ class RoundedRect implements IVertexSource {
   @override
   FlagsAndCommand vertex(VertexOutput output) {
     FlagsAndCommand cmd = FlagsAndCommand.commandStop;
-
-    switch (_currentStep) {
-      case 0:
-        _currentArc = Arc(
-          right - rightBottomRadiusX,
-          bottom + rightBottomRadiusY,
-          rightBottomRadiusX,
-          rightBottomRadiusY,
-          math.pi * 1.5,
-          math.pi * 2.0,
-          direction: Direction.clockwise,
-        );
-        _currentArc!.rewind();
-        _currentStep++;
-        return FlagsAndCommand.commandMoveTo;
-
-      case 1:
-        cmd = _currentArc!.vertex(output);
-        if (cmd.isStop) {
+    while (true) {
+      switch (_currentStep) {
+        case 0:
+          _currentArc = Arc(
+            right - rightBottomRadiusX,
+            bottom + rightBottomRadiusY,
+            rightBottomRadiusX,
+            rightBottomRadiusY,
+            math.pi * 1.5,
+            math.pi * 2.0,
+            direction: Direction.clockwise,
+          );
+          _currentArc!.rewind();
           _currentStep++;
-        }
-        return cmd;
+          return FlagsAndCommand.commandMoveTo;
 
-      case 2:
-        output.set(right, top - rightTopRadiusY);
-        _currentStep++;
-        return FlagsAndCommand.commandLineTo;
+        case 1:
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            _currentStep++;
+            continue;
+          }
+          return cmd;
 
-      case 3:
-        _currentArc = Arc(
-          right - rightTopRadiusX,
-          top - rightTopRadiusY,
-          rightTopRadiusX,
-          rightTopRadiusY,
-          0.0,
-          math.pi * 0.5,
-          direction: Direction.clockwise,
-        );
-        _currentArc!.rewind();
-        _currentStep++;
-        cmd = _currentArc!.vertex(output);
-        return cmd;
-
-      case 4:
-        cmd = _currentArc!.vertex(output);
-        if (cmd.isStop) {
+        case 2:
+          output.set(right, top - rightTopRadiusY);
           _currentStep++;
-        }
-        return cmd;
+          return FlagsAndCommand.commandLineTo;
 
-      case 5:
-        output.set(left + leftTopRadiusX, top);
-        _currentStep++;
-        return FlagsAndCommand.commandLineTo;
-
-      case 6:
-        _currentArc = Arc(
-          left + leftTopRadiusX,
-          top - leftTopRadiusY,
-          leftTopRadiusX,
-          leftTopRadiusY,
-          math.pi * 0.5,
-          math.pi,
-          direction: Direction.clockwise,
-        );
-        _currentArc!.rewind();
-        _currentStep++;
-        cmd = _currentArc!.vertex(output);
-        return cmd;
-
-      case 7:
-        cmd = _currentArc!.vertex(output);
-        if (cmd.isStop) {
+        case 3:
+          _currentArc = Arc(
+            right - rightTopRadiusX,
+            top - rightTopRadiusY,
+            rightTopRadiusX,
+            rightTopRadiusY,
+            0.0,
+            math.pi * 0.5,
+            direction: Direction.clockwise,
+          );
+          _currentArc!.rewind();
           _currentStep++;
-        }
-        return cmd;
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            continue;
+          }
+          return cmd;
 
-      case 8:
-        output.set(left, bottom + leftBottomRadiusY);
-        _currentStep++;
-        return FlagsAndCommand.commandLineTo;
+        case 4:
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            _currentStep++;
+            continue;
+          }
+          return cmd;
 
-      case 9:
-        _currentArc = Arc(
-          left + leftBottomRadiusX,
-          bottom + leftBottomRadiusY,
-          leftBottomRadiusX,
-          leftBottomRadiusY,
-          math.pi,
-          math.pi * 1.5,
-          direction: Direction.clockwise,
-        );
-        _currentArc!.rewind();
-        _currentStep++;
-        cmd = _currentArc!.vertex(output);
-        return cmd;
-
-      case 10:
-        cmd = _currentArc!.vertex(output);
-        if (cmd.isStop) {
+        case 5:
+          output.set(left + leftTopRadiusX, top);
           _currentStep++;
-        }
-        return cmd;
+          return FlagsAndCommand.commandLineTo;
 
-      case 11:
-        output.set(0, 0);
-        _currentStep++;
-        return FlagsAndCommand.commandEndPoly | FlagsAndCommand.flagClose;
+        case 6:
+          _currentArc = Arc(
+            left + leftTopRadiusX,
+            top - leftTopRadiusY,
+            leftTopRadiusX,
+            leftTopRadiusY,
+            math.pi * 0.5,
+            math.pi,
+            direction: Direction.clockwise,
+          );
+          _currentArc!.rewind();
+          _currentStep++;
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            continue;
+          }
+          return cmd;
 
-      default:
-        output.set(0, 0);
-        return FlagsAndCommand.commandStop;
+        case 7:
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            _currentStep++;
+            continue;
+          }
+          return cmd;
+
+        case 8:
+          output.set(left, bottom + leftBottomRadiusY);
+          _currentStep++;
+          return FlagsAndCommand.commandLineTo;
+
+        case 9:
+          _currentArc = Arc(
+            left + leftBottomRadiusX,
+            bottom + leftBottomRadiusY,
+            leftBottomRadiusX,
+            leftBottomRadiusY,
+            math.pi,
+            math.pi * 1.5,
+            direction: Direction.clockwise,
+          );
+          _currentArc!.rewind();
+          _currentStep++;
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            continue;
+          }
+          return cmd;
+
+        case 10:
+          cmd = _currentArc!.vertex(output);
+          if (cmd.isStop) {
+            _currentStep++;
+            continue;
+          }
+          return cmd;
+
+        case 11:
+          output.set(0, 0);
+          _currentStep++;
+          return FlagsAndCommand.commandEndPoly | FlagsAndCommand.flagClose;
+
+        default:
+          output.set(0, 0);
+          return FlagsAndCommand.commandStop;
+      }
     }
   }
 

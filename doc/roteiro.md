@@ -1,3 +1,14 @@
+continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart
+
+Portar ImageBuffer + blenders (BGRA/RGBA) e RasterBufferAccessors.
+Integrar RasterizerOutlineAA com esses renderers e adicionar testes de renderização simples (retângulo, linha, clip).
+
+Avançar GSUB/GPOS no GlyphLayout (kerning/marcas) depois de travar pipeline de imagem.
+
+**Progresso recente (20/11/2025)**
+- RasterizerCellsAA, ClipLiangBarsky/VectorClipper, ScanlineRasterizer, ScanlineRenderer/ImageBuffer (RGBA) e renderer AA de linha (Wu) portados.
+- Testes novos para rasterização/clipping passando (69/69 no total).
+- PathCommands ajustado para flags combinadas e RoundedRect emitindo fechamento correto.
 - ✅ Utils e Bounds
 - ✅ TableEntry, TableHeader, TableEntryCollection
 - ✅ OpenFontReader (versão inicial)

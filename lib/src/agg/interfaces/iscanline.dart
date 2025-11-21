@@ -4,6 +4,7 @@ class ScanlineSpan {
   int x = 0;
   int len = 0;
   int cover_index = 0;
+  int cover = 0; // optional fixed cover for packed spans
 }
 
 abstract class IScanlineCache {
@@ -25,6 +26,8 @@ abstract class IScanlineCache {
   Uint8List getCovers();
 
   void add_cell(int x, int cover);
+
+  void add_cells(int x, int len, Uint8List covers, int coversIndex);
 
   void add_span(int x, int len, int cover);
 }

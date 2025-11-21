@@ -1,26 +1,44 @@
 /// Path command flags for vertex data
-enum FlagsAndCommand {
+class FlagsAndCommand {
+  final int value;
+  const FlagsAndCommand._(this.value);
+
   // Command codes
-  commandStop(0x00),
-  commandMoveTo(0x01),
-  commandLineTo(0x02),
-  commandCurve3(0x03),
-  commandCurve4(0x04),
-  commandCurveN(0x05),
-  commandCatrom(0x06),
-  commandUbspline(0x07),
-  commandEndPoly(0x0F),
-  commandMask(0x0F),
+  static const commandStop = FlagsAndCommand._(0x00);
+  static const commandMoveTo = FlagsAndCommand._(0x01);
+  static const commandLineTo = FlagsAndCommand._(0x02);
+  static const commandCurve3 = FlagsAndCommand._(0x03);
+  static const commandCurve4 = FlagsAndCommand._(0x04);
+  static const commandCurveN = FlagsAndCommand._(0x05);
+  static const commandCatrom = FlagsAndCommand._(0x06);
+  static const commandUbspline = FlagsAndCommand._(0x07);
+  static const commandEndPoly = FlagsAndCommand._(0x0F);
+  static const commandMask = FlagsAndCommand._(0x0F);
 
   // Flag codes
-  flagNone(0x00),
-  flagCCW(0x10),
-  flagCW(0x20),
-  flagClose(0x40),
-  flagMask(0xF0);
+  static const flagNone = FlagsAndCommand._(0x00);
+  static const flagCCW = FlagsAndCommand._(0x10);
+  static const flagCW = FlagsAndCommand._(0x20);
+  static const flagClose = FlagsAndCommand._(0x40);
+  static const flagMask = FlagsAndCommand._(0xF0);
 
-  final int value;
-  const FlagsAndCommand(this.value);
+  static const List<FlagsAndCommand> values = <FlagsAndCommand>[
+    commandStop,
+    commandMoveTo,
+    commandLineTo,
+    commandCurve3,
+    commandCurve4,
+    commandCurveN,
+    commandCatrom,
+    commandUbspline,
+    commandEndPoly,
+    commandMask,
+    flagNone,
+    flagCCW,
+    flagCW,
+    flagClose,
+    flagMask,
+  ];
 
   bool get isStop => (value & commandMask.value) == commandStop.value;
   bool get isMoveTo => (value & commandMask.value) == commandMoveTo.value;
@@ -42,7 +60,7 @@ enum FlagsAndCommand {
     for (var cmd in FlagsAndCommand.values) {
       if (cmd.value == value) return cmd;
     }
-    return FlagsAndCommand.commandStop;
+    return FlagsAndCommand._(value);
   }
 
   FlagsAndCommand operator |(FlagsAndCommand other) {
@@ -52,6 +70,38 @@ enum FlagsAndCommand {
   FlagsAndCommand operator &(FlagsAndCommand other) {
     return FlagsAndCommand.fromValue(value & other.value);
   }
+
+  String get name {
+    switch (value & commandMask.value) {
+      case 0x00:
+        return 'commandStop';
+      case 0x01:
+        return 'commandMoveTo';
+      case 0x02:
+        return 'commandLineTo';
+      case 0x03:
+        return 'commandCurve3';
+      case 0x04:
+        return 'commandCurve4';
+      case 0x05:
+        return 'commandCurveN';
+      case 0x06:
+        return 'commandCatrom';
+      case 0x07:
+        return 'commandUbspline';
+      case 0x0F:
+        return 'commandEndPoly';
+    }
+    return 'command($value)';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FlagsAndCommand && other.value == value;
+
+  @override
+  int get hashCode => value.hashCode;
 }
 
 /// Hint for vertex command interpretation
