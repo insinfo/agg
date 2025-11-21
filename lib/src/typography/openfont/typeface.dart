@@ -4,6 +4,8 @@
 
 import 'glyph.dart';
 import 'tables/cmap.dart';
+import 'tables/gpos.dart';
+import 'tables/gsub.dart';
 import 'tables/hhea.dart';
 import 'tables/hmtx.dart';
 import 'tables/maxp.dart';
@@ -25,6 +27,8 @@ class Typeface {
   MaxProfile? maxProfile;
   HorizontalHeader? hheaTable;
   String? filename;
+  GSUB? gsubTable;
+  GPOS? gposTable;
 
   Typeface._({
     required NameEntry nameEntry,
@@ -37,6 +41,8 @@ class Typeface {
     this.maxProfile,
     this.hheaTable,
     this.filename,
+    this.gsubTable,
+    this.gposTable,
   })  : _nameEntry = nameEntry,
         _bounds = bounds,
         _unitsPerEm = unitsPerEm,
@@ -56,6 +62,8 @@ class Typeface {
     MaxProfile? maxProfile,
     HorizontalHeader? hheaTable,
     String? filename,
+    GSUB? gsubTable,
+    GPOS? gposTable,
   }) {
     return Typeface._(
       nameEntry: nameEntry,
@@ -68,6 +76,8 @@ class Typeface {
       maxProfile: maxProfile,
       hheaTable: hheaTable,
       filename: filename,
+      gsubTable: gsubTable,
+      gposTable: gposTable,
     );
   }
 

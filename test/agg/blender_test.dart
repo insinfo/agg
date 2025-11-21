@@ -4,6 +4,7 @@ import 'package:agg/src/agg/primitives/color.dart';
 import 'package:agg/src/agg/scanline_renderer.dart';
 import 'package:agg/src/agg/scanline_rasterizer.dart';
 import 'package:agg/src/agg/scanline_unpacked8.dart';
+import 'package:agg/src/agg/scanline_packed8.dart';
 import 'package:agg/src/agg/vertex_source/vertex_storage.dart';
 import 'package:test/test.dart';
 
@@ -38,5 +39,21 @@ void main() {
       }
     }
     expect(filled, greaterThan(0)); // clipped draw didn't crash and touched pixels
+  });
+
+  test('packed scanline renders uniform cover spans', () {
+    final img = ImageBuffer(2, 1);
+    final ras = ScanlineRasterizer();
+    final sl = ScanlineCachePacked8();
+    final path = VertexStorage()
+      ..moveTo(0, 0)
+      ..lineTo(2, 0)
+      ..lineTo(2, 1)
+      ..lineTo(0, 1)
+      ..closePath();
+    ras.add_path(path);
+    ScanlineRenderer.renderSolid(ras, sl, img, Color(0, 0, 0, 200));
+    expect(img.getPixel(0, 0).alpha, greaterThan(0));
+    expect(img.getPixel(1, 0).alpha, greaterThan(0));
   });
 }

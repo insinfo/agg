@@ -1,4 +1,5 @@
 continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart
+continue portando o C:\MyDartProjects\agg\agg-sharp\Typography para dart
 
 Portar ImageBuffer + blenders (BGRA/RGBA) e RasterBufferAccessors.
 Integrar RasterizerOutlineAA com esses renderers e adicionar testes de renderização simples (retângulo, linha, clip).

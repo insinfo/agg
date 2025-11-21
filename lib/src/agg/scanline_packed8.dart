@@ -66,11 +66,13 @@ class ScanlineCachePacked8 implements IScanlineCache {
 
   @override
   void add_span(int x, int len, int cover) {
+    _covers[_coverIndex] = cover;
     _spanIndex++;
     _spans[_spanIndex].cover = cover;
     _spans[_spanIndex].cover_index = _coverIndex;
     _spans[_spanIndex].x = x;
     _spans[_spanIndex].len = -len;
+    _coverIndex++;
     _lastX = x + len - 1;
   }
 

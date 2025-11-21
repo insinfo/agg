@@ -3,8 +3,9 @@
 ## Status Geral
 **Projeto:** Porte da biblioteca Typography (agg-sharp) de C# para Dart  
 **Data de Início:** 07 de Novembro de 2025  
-**Status Atual:** Em Progresso - Fase 3 (AGG Core) - 30%
+**Status Atual:** Em Progresso - Fase 3 (AGG Core) - 35%
 continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart e validando rasterização
+e C:\MyDartProjects\agg\agg-sharp\Typography 
 ---
 
 ## ✅ Fase 0: Estrutura de Pastas e Utilitários Essenciais - CONCLUÍDO
@@ -169,10 +170,11 @@ continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart e validando ra
   - ✅ Substituições contextuais (parcial)
   - ✅ `ScriptList`, `FeatureList`, `CoverageTable`, `ClassDefTable` portados
 
-- [ ] `GPOS` - `lib/src/typography/openfont/tables/gpos.dart` (Posicionamento de Glifos)
-  - Kerning
-  - Posicionamento de marcas
-  - PENDENTE
+- [x] `GPOS` - `lib/src/typography/openfont/tables/gpos.dart` (Posicionamento de Glifos)
+  - ✅ Lookup Type 1 (Single Adjustment)
+  - ✅ Lookup Type 2 (Pair Adjustment) - Format 1 & 2
+  - ✅ Lookup Type 4 (Mark-to-Base)
+  - ⏳ Lookup Type 3, 5, 6, 7, 8 pendentes
 
 - [ ] `GDEF` - `lib/src/typography/openfont/tables/gdef.dart`
   - Definições de glifos
@@ -197,21 +199,6 @@ continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart e validando ra
 ### Transform
 - [x] `Affine` - `lib/src/agg/transform/affine.dart`
 - [x] `Perspective` - `lib/src/agg/transform/perspective.dart`
-- [x] `Bilinear` - `lib/src/agg/transform/bilinear.dart`
-
-### Vertex Source
-- [x] `PathCommands` - `lib/src/agg/vertex_source/path_commands.dart`
-- [x] `VertexData` - `lib/src/agg/vertex_source/vertex_data.dart`
-- [x] `IVertexSource` - `lib/src/agg/vertex_source/i_vertex_source.dart`
-- [x] `VertexStorage` - `lib/src/agg/vertex_source/vertex_storage.dart`
-- [x] `Arc` - `lib/src/agg/vertex_source/arc.dart`
-- [x] `Ellipse` - `lib/src/agg/vertex_source/ellipse.dart`
-- [x] `RoundedRect` - `lib/src/agg/vertex_source/rounded_rect.dart`
-
-### Rasterizer
-- [ ] `ImageLineRenderer` (faltar caps/joins fieis, spans via accessors)
-- [x] `RasterizerCellsAA` (acumulador AA completo)
-- [x] `VectorClipper` / `ClipLiangBarsky` (clipping de linhas)
 - [x] `RasterizerScanline` (core + gamma)
 - [x] `Scanline` caches (bin/packed/unpacked) + hit-test
 - [ ] `Outline AA`
@@ -225,6 +212,18 @@ continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart e validando ra
 ### Image
 - [x] `ImageBuffer` (RGBA8888 básico)
 - [x] `Blenders` (RGBA straight alpha inicial)
+
+### Utilities
+- [x] `GammaLookUpTable` - `lib/src/agg/gamma_lookup_table.dart`
+  - Tabela de lookup para correção gamma
+  - Suporte para correção direta e inversa
+  - ✅ **Implementado e testado**
+
+### Text Layout (Correções Recentes)
+- [x] `GlyphSetPosition` - Correções de imports e tipos
+- [x] `GlyphSubstitution` - Correções de imports e nomes de métodos
+- [x] `GlyphPosStream` - Remoção de anotações @override incorretas
+- [x] Todos os erros de análise corrigidos (9 issues → 0 issues)
 
 ---
 
@@ -322,8 +321,20 @@ Nenhum no momento.
 
 ---
 
-**Última Atualização:** 20 de Novembro de 2025 - 19:20  
+**Última Atualização:** 21 de Novembro de 2025 - 16:40  
 **Responsável:** insinfo
+
+**Últimas Alterações:**
+- ✅ Portado `GammaLookUpTable` para correção gamma
+- ✅ Adicionado typedef `PathCommand` e classe helper `PathCommands` para compatibilidade
+- ✅ Corrigidos todos os erros de análise do texto layout (9 → 0 issues)
+- ✅ Criado `DebugLogger` utility para debugging e performance monitoring
+- ✅ Portado `ApplyTransform` - aplica transformações afins a vertex sources
+- ✅ Portado `FlattenCurve` - converte curvas Bézier em segmentos de linha
+- ✅ Portado `ReversePath` - inverte direção de caminhos (winding order)
+- ✅ Portado `JoinPaths` - combina múltiplos vertex sources
+- ✅ Limpeza de imports não utilizados
+- ✅ Projeto 100% limpo (0 issues)
 
 ---
 
@@ -347,4 +358,4 @@ Nenhum no momento.
 - ⏳ GPOS (kerning) - PENDENTE
 
 ### Próximo Marco:
-**Completar Fase 2** - Implementar GSUB e GPOS para suporte completo a features OpenType (ligaduras, kerning, posicionamento de marcas, etc.)
+**Completar Fase 2** - Implementar GSUB e GPOS restantes (Contextual, Chained Contextual) e testes de integração.

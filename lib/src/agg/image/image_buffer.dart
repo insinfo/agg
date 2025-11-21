@@ -7,6 +7,8 @@ import 'package:agg/src/agg/image/rgba.dart';
 import 'package:agg/src/agg/primitives/color.dart';
 import 'package:agg/src/agg/primitives/rectangle_int.dart';
 import 'package:agg/src/vector_math/vector2.dart';
+import 'package:agg/src/agg/scanline_rasterizer.dart';
+import 'package:agg/src/agg/scanline_unpacked8.dart';
 
 /// Simple RGBA8888 image buffer with basic blending operations.
 class ImageBuffer implements IImageByte {
@@ -41,7 +43,7 @@ class ImageBuffer implements IImageByte {
 
   @override
   Graphics2D newGraphics2D() {
-    throw UnimplementedError();
+    return BasicGraphics2D(this, rasterizer: ScanlineRasterizer(), scanline: ScanlineUnpacked8());
   }
 
   @override

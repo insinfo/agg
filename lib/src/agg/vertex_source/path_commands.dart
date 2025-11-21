@@ -104,6 +104,27 @@ class FlagsAndCommand {
   int get hashCode => value.hashCode;
 }
 
+/// Typedef for backward compatibility
+typedef PathCommand = FlagsAndCommand;
+
+/// Helper class for path commands
+class PathCommands {
+  static const stop = FlagsAndCommand.commandStop;
+  static const moveTo = FlagsAndCommand.commandMoveTo;
+  static const lineTo = FlagsAndCommand.commandLineTo;
+  static const curve3 = FlagsAndCommand.commandCurve3;
+  static const curve4 = FlagsAndCommand.commandCurve4;
+  static const endPoly = FlagsAndCommand.commandEndPoly;
+  static const mask = FlagsAndCommand.commandMask;
+  static const flagClose = FlagsAndCommand.flagClose;
+  static const flagsMask = FlagsAndCommand.flagMask;
+
+  static bool isVertex(FlagsAndCommand cmd) => cmd.isVertex;
+  static bool isStop(FlagsAndCommand cmd) => cmd.isStop;
+  static bool isMoveTo(FlagsAndCommand cmd) => cmd.isMoveTo;
+  static bool isLineTo(FlagsAndCommand cmd) => cmd.isLineTo;
+}
+
 /// Hint for vertex command interpretation
 enum CommandHint {
   none,

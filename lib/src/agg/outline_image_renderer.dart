@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:agg/src/agg/image/iimage.dart';
+import 'package:agg/src/agg/line_profile_aa.dart';
 import 'package:agg/src/agg/line_aa_basics.dart';
+import 'package:agg/src/agg/primitives/rectangle_int.dart';
 import 'package:agg/src/agg/primitives/color.dart';
 import 'package:agg/src/agg/rasterizer_outline_aa.dart';
 
-/// Minimal image-backed line renderer: projects subpixel coords into pixel
+/// TODO Minimal image-backed line renderer: projects subpixel coords into pixel
 /// space and draws a simple solid line.
 /// AA line renderer using Xiaolin Wu with optional thickness (in pixels).
 class ImageLineRenderer extends LineRenderer {
@@ -167,3 +169,111 @@ class ImageLineRenderer extends LineRenderer {
 }
 
 enum CapStyle { butt, square, round }
+
+/// Profile-based line renderer that mimics AGG's outline AA using a precomputed
+/// coverage profile (LineProfileAA). Simpler than the original but keeps
+/// predictable falloff from the centerline.
+class ProfileLineRenderer extends LineRenderer {
+  final IImageByte _image;
+  final LineProfileAA profile;
+  Color color;
+  RectangleInt? clipBox;
+  CapStyle cap;
+
+  ProfileLineRenderer(
+    this._image, {
+    required this.profile,
+    Color? color,
+    this.clipBox,
+    this.cap = CapStyle.butt,
+  }) : color = color ?? Color(0, 0, 0, 255);
+
+  int get _subpixelScale => profile.subpixelScale;
+
+  @override
+  void line0(LineParameters lp) => _renderSegment(lp.x1, lp.y1, lp.x2, lp.y2);
+
+  @override
+  void line1(LineParameters lp, int xb1, int yb1) => line0(lp);
+
+  @override
+  void line2(LineParameters lp, int xb2, int yb2) => line0(lp);
+
+  @override
+  void line3(LineParameters lp, int xb1, int yb1, int xb2, int yb2) => line0(lp);
+
+  @override
+  void pie(int x1, int y1, int x2, int y2, int x3, int y3) {
+    // Caps handled implicitly by distance-to-segment; nothing extra here.
+  }
+
+  void _renderSegment(int sx, int sy, int ex, int ey) {
+    final double x0 = sx / _subpixelScale;
+    final double y0 = sy / _subpixelScale;
+    final double x1 = ex / _subpixelScale;
+    final double y1 = ey / _subpixelScale;
+
+    final double dx = x1 - x0;
+    final double dy = y1 - y0;
+    final double segLen2 = dx * dx + dy * dy;
+    if (segLen2 == 0) return;
+
+    final double segLen = math.sqrt(segLen2);
+    final double radius = (profile.profileSize() - profile.subpixelScale * 2) / profile.subpixelScale;
+    int minX = (math.min(x0, x1) - radius - 1).floor();
+    int maxX = (math.max(x0, x1) + radius + 1).ceil();
+    int minY = (math.min(y0, y1) - radius - 1).floor();
+    int maxY = (math.max(y0, y1) + radius + 1).ceil();
+
+    if (clipBox != null) {
+      minX = math.max(minX, clipBox!.left);
+      minY = math.max(minY, clipBox!.bottom);
+      maxX = math.min(maxX, clipBox!.right);
+      maxY = math.min(maxY, clipBox!.top);
+    }
+
+    for (int y = minY; y <= maxY; y++) {
+      if (y < 0 || y >= _image.height) continue;
+      for (int x = minX; x <= maxX; x++) {
+        if (x < 0 || x >= _image.width) continue;
+        // Point-to-segment distance.
+        final double px = x + 0.5;
+        final double py = y + 0.5;
+        final double tRaw = ((px - x0) * dx + (py - y0) * dy) / segLen2;
+
+        if (cap == CapStyle.butt && (tRaw < 0.0 || tRaw > 1.0)) {
+          continue;
+        }
+
+        double t;
+        if (cap == CapStyle.square) {
+          final double extend = segLen == 0 ? 0.0 : (radius / segLen);
+          t = tRaw.clamp(-extend, 1.0 + extend);
+        } else {
+          t = tRaw.clamp(0.0, 1.0);
+        }
+
+        double projX = x0 + t * dx;
+        double projY = y0 + t * dy;
+
+        double dist;
+        if (cap == CapStyle.round) {
+          if (tRaw < 0.0) {
+            dist = math.sqrt((px - x0) * (px - x0) + (py - y0) * (py - y0));
+          } else if (tRaw > 1.0) {
+            dist = math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+          } else {
+            dist = math.sqrt((projX - px) * (projX - px) + (projY - py) * (projY - py));
+          }
+        } else {
+          dist = math.sqrt((projX - px) * (projX - px) + (projY - py) * (projY - py));
+        }
+
+        final int cover = profile.value((dist * _subpixelScale).round());
+        if (cover > 0) {
+          _image.BlendPixel(x, y, color, cover);
+        }
+      }
+    }
+  }
+}

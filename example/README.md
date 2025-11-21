@@ -53,6 +53,24 @@ dart run example/load_font_example.dart /usr/share/fonts/truetype/dejavu/DejaVuS
 dart run example/load_font_example.dart /System/Library/Fonts/Helvetica.ttc
 ```
 
+### 3. outline_profile_example.dart
+
+Desenha linhas AA em buffer RGBA usando `ProfileLineRenderer` + `LineProfileAA`.
+
+**Funcionalidades demonstradas:**
+- Uso de perfil de linha AA com caps quadrados
+- Pipeline `RasterizerOutlineAA` -> `ProfileLineRenderer`
+- Buffer RGBA simples (`ImageBuffer`)
+
+**Como executar:**
+```bash
+dart run example/outline_profile_example.dart
+```
+
+### 4. svg parsing (parseString)
+
+O parser leve de SVG (`SvgParser.parseString`) converte `<path>` e `<polygon>` em `VertexStorage` + cor. Use em código para carregar shapes simples embutidos em strings.
+
 ## Conceitos Demonstrados
 
 ### Sistema de Coordenadas
