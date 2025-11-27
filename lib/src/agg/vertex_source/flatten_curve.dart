@@ -1,4 +1,5 @@
-import 'i_vertex_source.dart';
+import 'package:agg/src/shared/ref_param.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
@@ -40,14 +41,16 @@ class FlattenCurve implements IVertexSource {
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
     if (_currentVertex >= _vertices.length) {
-      output.set(0, 0);
+      x.value = 0;
+      y.value = 0;
       return FlagsAndCommand.commandStop;
     }
 
     final v = _vertices[_currentVertex];
-    output.set(v.x, v.y);
+    x.value = v.x;
+    y.value = v.y;
     _currentVertex++;
 
     return v.command;
@@ -56,12 +59,13 @@ class FlattenCurve implements IVertexSource {
   @override
   Iterable<VertexData> vertices() sync* {
     rewind();
-    var output = VertexOutput();
+    var x = RefParam(0.0);
+    var y = RefParam(0.0);
 
     while (true) {
-      var cmd = vertex(output);
+      var cmd = vertex(x, y);
       if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
+      yield VertexData(cmd, x.value, y.value);
     }
   }
 
@@ -76,7 +80,8 @@ class FlattenCurve implements IVertexSource {
   }
 
   void _flattenPath() {
-    final output = VertexOutput();
+    final x = RefParam(0.0);
+    final y = RefParam(0.0);
 
     double startX = 0.0;
     double startY = 0.0;
@@ -88,46 +93,46 @@ class FlattenCurve implements IVertexSource {
     double cp2x = 0.0, cp2y = 0.0;
 
     FlagsAndCommand cmd;
-    while ((cmd = _source!.vertex(output)) != FlagsAndCommand.commandStop) {
+    while ((cmd = _source!.vertex(x, y)) != FlagsAndCommand.commandStop) {
       final cmdBase = cmd & FlagsAndCommand.commandMask;
 
       if (cmdBase == FlagsAndCommand.commandMoveTo) {
-        _addVertex(VertexData(cmd, output.x, output.y));
-        startX = lastX = output.x;
-        startY = lastY = output.y;
+        _addVertex(VertexData(cmd, x.value, y.value));
+        startX = lastX = x.value;
+        startY = lastY = y.value;
       } else if (cmdBase == FlagsAndCommand.commandLineTo) {
-        _addVertex(VertexData(cmd, output.x, output.y));
-        lastX = output.x;
-        lastY = output.y;
+        _addVertex(VertexData(cmd, x.value, y.value));
+        lastX = x.value;
+        lastY = y.value;
       } else if (cmdBase == FlagsAndCommand.commandCurve3) {
         // Quadratic Bezier - first call gets control point, second gets end point
-        cp1x = output.x;
-        cp1y = output.y;
+        cp1x = x.value;
+        cp1y = y.value;
 
         // Get the end point
-        cmd = _source!.vertex(output);
+        cmd = _source!.vertex(x, y);
         if (cmd != FlagsAndCommand.commandStop) {
-          _subdivideQuadratic(lastX, lastY, cp1x, cp1y, output.x, output.y, 0);
-          lastX = output.x;
-          lastY = output.y;
+          _subdivideQuadratic(lastX, lastY, cp1x, cp1y, x.value, y.value, 0);
+          lastX = x.value;
+          lastY = y.value;
         }
       } else if (cmdBase == FlagsAndCommand.commandCurve4) {
         // Cubic Bezier - three calls: cp1, cp2, end point
-        cp1x = output.x;
-        cp1y = output.y;
+        cp1x = x.value;
+        cp1y = y.value;
 
-        cmd = _source!.vertex(output);
+        cmd = _source!.vertex(x, y);
         if (cmd == FlagsAndCommand.commandStop) break;
-        cp2x = output.x;
-        cp2y = output.y;
+        cp2x = x.value;
+        cp2y = y.value;
 
-        cmd = _source!.vertex(output);
+        cmd = _source!.vertex(x, y);
         if (cmd == FlagsAndCommand.commandStop) break;
 
         _subdivideCubic(
-            lastX, lastY, cp1x, cp1y, cp2x, cp2y, output.x, output.y, 0);
-        lastX = output.x;
-        lastY = output.y;
+            lastX, lastY, cp1x, cp1y, cp2x, cp2y, x.value, y.value, 0);
+        lastX = x.value;
+        lastY = y.value;
       } else if (cmdBase == FlagsAndCommand.commandEndPoly) {
         if ((cmd & FlagsAndCommand.flagClose).value != 0) {
           // Close the path

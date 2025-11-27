@@ -85,7 +85,19 @@ class Bilinear implements ITransform {
   bool get isValid => _valid;
 
   @override
-  ({double x, double y}) transform(double x, double y) {
+  void transform(List<double> xy) {
+    double x = xy[0];
+    double y = xy[1];
+    final double x_y = x * y;
+    final double tx =
+        _mtx[0][0] + _mtx[1][0] * x_y + _mtx[2][0] * x + _mtx[3][0] * y;
+    final double ty =
+        _mtx[0][1] + _mtx[1][1] * x_y + _mtx[2][1] * x + _mtx[3][1] * y;
+    xy[0] = tx;
+    xy[1] = ty;
+  }
+
+  ({double x, double y}) transformPoint(double x, double y) {
     final double xy = x * y;
     final double tx =
         _mtx[0][0] + _mtx[1][0] * xy + _mtx[2][0] * x + _mtx[3][0] * y;
@@ -95,7 +107,7 @@ class Bilinear implements ITransform {
   }
 
   void transformRef(RefParam<double> x, RefParam<double> y) {
-    final result = transform(x.value, y.value);
+    final result = transformPoint(x.value, y.value);
     x.value = result.x;
     y.value = result.y;
   }

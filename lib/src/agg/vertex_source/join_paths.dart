@@ -1,4 +1,5 @@
-import 'i_vertex_source.dart';
+import 'package:agg/src/shared/ref_param.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
@@ -38,18 +39,19 @@ class JoinPaths implements IVertexSource {
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
     if (_currentSource >= _sources.length) {
-      output.set(0, 0);
+      x.value = 0;
+      y.value = 0;
       return FlagsAndCommand.commandStop;
     }
 
-    FlagsAndCommand cmd = _sources[_currentSource].vertex(output);
+    FlagsAndCommand cmd = _sources[_currentSource].vertex(x, y);
 
     while (cmd == FlagsAndCommand.commandStop &&
         _currentSource < _sources.length - 1) {
       _currentSource++;
-      cmd = _sources[_currentSource].vertex(output);
+      cmd = _sources[_currentSource].vertex(x, y);
     }
 
     return cmd;
@@ -58,12 +60,13 @@ class JoinPaths implements IVertexSource {
   @override
   Iterable<VertexData> vertices() sync* {
     rewind();
-    var output = VertexOutput();
+    var x = RefParam(0.0);
+    var y = RefParam(0.0);
 
     while (true) {
-      var cmd = vertex(output);
+      var cmd = vertex(x, y);
       if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
+      yield VertexData(cmd, x.value, y.value);
     }
   }
 

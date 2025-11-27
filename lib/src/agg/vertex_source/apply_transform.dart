@@ -1,5 +1,6 @@
+import 'package:agg/src/shared/ref_param.dart';
 import '../transform/affine.dart';
-import 'i_vertex_source.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
@@ -35,14 +36,14 @@ class ApplyTransform implements IVertexSource {
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
-    final cmd = _source.vertex(output);
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
+    final cmd = _source.vertex(x, y);
 
     if (cmd.isVertex) {
-      final x = output.x;
-      final y = output.y;
-      output.x = _transform.sx * x + _transform.shx * y + _transform.tx;
-      output.y = _transform.shy * x + _transform.sy * y + _transform.ty;
+      final tx = x.value;
+      final ty = y.value;
+      x.value = tx * _transform.sx + ty * _transform.shx + _transform.tx;
+      y.value = tx * _transform.shy + ty * _transform.sy + _transform.ty;
     }
 
     return cmd;
@@ -51,12 +52,13 @@ class ApplyTransform implements IVertexSource {
   @override
   Iterable<VertexData> vertices() sync* {
     rewind();
-    var output = VertexOutput();
+    var x = RefParam(0.0);
+    var y = RefParam(0.0);
 
     while (true) {
-      var cmd = vertex(output);
+      var cmd = vertex(x, y);
       if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
+      yield VertexData(cmd, x.value, y.value);
     }
   }
 

@@ -1,11 +1,12 @@
 import 'dart:math' as math;
+import 'package:agg/src/agg/transform/i_transform.dart';
 
 /// Affine transformation matrix for 2D graphics.
 /// Represents a 2x3 matrix for affine transformations:
 /// | sx  shx  tx |
 /// | shy sy   ty |
 /// | 0   0    1  |
-class Affine {
+class Affine implements ITransform {
   double sx; // Scale X
   double shy; // Shear Y
   double shx; // Shear X
@@ -129,11 +130,24 @@ class Affine {
   }
 
   /// Transform a point (x, y)
-  ({double x, double y}) transform(double x, double y) {
+  ({double x, double y}) transformPoint(double x, double y) {
     return (
       x: x * sx + y * shx + tx,
       y: x * shy + y * sy + ty,
     );
+  }
+
+  @override
+  void transform(List<double> xy) {
+    double x = xy[0];
+    double y = xy[1];
+    xy[0] = x * sx + y * shx + tx;
+    xy[1] = x * shy + y * sy + ty;
+  }
+
+  void scalingAbs(List<double> xy) {
+    xy[0] = math.sqrt(sx * sx + shx * shx);
+    xy[1] = math.sqrt(shy * shy + sy * sy);
   }
 
   /// Transform only the vector part (no translation)

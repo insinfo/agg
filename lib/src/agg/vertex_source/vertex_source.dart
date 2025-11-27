@@ -1,6 +1,6 @@
 export 'arc.dart';
 export 'ellipse.dart';
-export 'i_vertex_source.dart';
+export 'ivertex_source.dart';
 export 'path_commands.dart';
 export 'rounded_rect.dart';
 export 'vertex_data.dart';

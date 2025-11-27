@@ -1,97 +1,137 @@
-import 'i_vertex_source.dart';
+import '../../shared/ref_param.dart';
+import '../interfaces/imarkers.dart';
+import 'igenerator.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
-/// Adapts a vertex source with optional transformation and filtering.
-///
-/// This class provides a flexible way to wrap and modify vertex sources
-/// without changing the original source.
+class NullMarkers implements IMarkers {
+  @override
+  void clear() {}
+
+  @override
+  void addVertex(double x, double y, FlagsAndCommand cmd) {}
+}
+
+enum _Status {
+  initial,
+  accumulate,
+  generate,
+}
+
 class VertexSourceAdapter implements IVertexSource {
-  IVertexSource _source;
-  bool _removeMoveTo = false;
-  bool _removeLineTo = false;
-  bool _removeCurves = false;
+  IGenerator _generator;
+  IMarkers _markers;
+  _Status _status = _Status.initial;
+  FlagsAndCommand _lastCmd = FlagsAndCommand.commandStop;
+  double _startX = 0.0;
+  double _startY = 0.0;
 
-  VertexSourceAdapter(this._source);
+  IVertexSource vertexSource;
 
-  /// Gets the wrapped source.
-  IVertexSource get source => _source;
+  VertexSourceAdapter(this.vertexSource, this._generator, [IMarkers? markers])
+      : _markers = markers ?? NullMarkers();
 
-  /// Sets a new source to wrap.
-  set source(IVertexSource value) {
-    _source = value;
-  }
+  IGenerator get generator => _generator;
+  IMarkers get markers => _markers;
 
-  /// If true, filters out moveTo commands.
-  bool get removeMoveTo => _removeMoveTo;
-  set removeMoveTo(bool value) {
-    _removeMoveTo = value;
-  }
-
-  /// If true, filters out lineTo commands.
-  bool get removeLineTo => _removeLineTo;
-  set removeLineTo(bool value) {
-    _removeLineTo = value;
-  }
-
-  /// If true, filters out curve commands.
-  bool get removeCurves => _removeCurves;
-  set removeCurves(bool value) {
-    _removeCurves = value;
+  void attach(IVertexSource source) {
+    vertexSource = source;
   }
 
   @override
   void rewind([int pathId = 0]) {
-    _source.rewind(pathId);
+    vertexSource.rewind(pathId);
+    _status = _Status.initial;
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
-    while (true) {
-      final cmd = _source.vertex(output);
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
+    x.value = 0;
+    y.value = 0;
+    FlagsAndCommand command = FlagsAndCommand.commandStop;
+    bool done = false;
 
-      if (cmd.isStop) {
-        return cmd;
+    while (!done) {
+      switch (_status) {
+        case _Status.initial:
+          _markers.clear();
+          var px = RefParam(0.0);
+          var py = RefParam(0.0);
+          _lastCmd = vertexSource.vertex(px, py);
+          _startX = px.value;
+          _startY = py.value;
+          _status = _Status.accumulate;
+          continue;
+
+        case _Status.accumulate:
+          if (ShapePath.isStop(_lastCmd)) {
+            return FlagsAndCommand.commandStop;
+          }
+
+          _generator.removeAll();
+          _generator.addVertex(_startX, _startY, FlagsAndCommand.commandMoveTo);
+          _markers.addVertex(_startX, _startY, FlagsAndCommand.commandMoveTo);
+
+          for (;;) {
+            var px = RefParam(0.0);
+            var py = RefParam(0.0);
+            command = vertexSource.vertex(px, py);
+            
+            if (ShapePath.isVertex(command)) {
+              _lastCmd = command;
+              if (ShapePath.isMoveTo(command)) {
+                _startX = px.value;
+                _startY = py.value;
+                break;
+              }
+              _generator.addVertex(px.value, py.value, command);
+              _markers.addVertex(px.value, py.value, FlagsAndCommand.commandLineTo);
+            } else {
+              if (ShapePath.isStop(command)) {
+                _lastCmd = FlagsAndCommand.commandStop;
+                break;
+              }
+              if (ShapePath.isEndPoly(command)) {
+                _generator.addVertex(px.value, py.value, command);
+                break;
+              }
+            }
+          }
+          _generator.rewind(0);
+          _status = _Status.generate;
+          continue;
+
+        case _Status.generate:
+          command = _generator.vertex(x, y);
+          if (ShapePath.isStop(command)) {
+            _status = _Status.accumulate;
+            break;
+          }
+          done = true;
+          break;
       }
-
-      final cmdBase = cmd & FlagsAndCommand.commandMask;
-
-      // Filter based on settings
-      if (_removeMoveTo && cmdBase == FlagsAndCommand.commandMoveTo) {
-        continue;
-      }
-
-      if (_removeLineTo && cmdBase == FlagsAndCommand.commandLineTo) {
-        continue;
-      }
-
-      if (_removeCurves &&
-          (cmdBase == FlagsAndCommand.commandCurve3 ||
-              cmdBase == FlagsAndCommand.commandCurve4)) {
-        continue;
-      }
-
-      return cmd;
     }
+    return command;
   }
 
   @override
   Iterable<VertexData> vertices() sync* {
-    rewind();
-    var output = VertexOutput();
-
-    while (true) {
-      var cmd = vertex(output);
-      if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
-    }
+    rewind(0);
+    var x = RefParam(0.0);
+    var y = RefParam(0.0);
+    FlagsAndCommand cmd;
+    do {
+      cmd = vertex(x, y);
+      if (!ShapePath.isStop(cmd)) {
+        yield VertexData(cmd, x.value, y.value);
+      }
+    } while (!ShapePath.isStop(cmd));
   }
 
   @override
   int getLongHashCode([int hash = 0xcbf29ce484222325]) {
-    hash = _source.getLongHashCode(hash);
-    hash ^= 0x41444150; // ASCII "ADAP"
-    hash *= 1099511628211;
-    return hash;
+    // TODO: Implement getLongHashCode properly if needed
+    return vertexSource.getLongHashCode(hash);
   }
 }

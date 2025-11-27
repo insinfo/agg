@@ -1,4 +1,5 @@
-import 'i_vertex_source.dart';
+import 'package:agg/src/shared/ref_param.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
@@ -42,29 +43,31 @@ class ConnectedPaths implements IVertexSource {
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
     if (_currentSource >= _sources.length) {
-      output.set(0, 0);
+      x.value = 0;
+      y.value = 0;
       return FlagsAndCommand.commandStop;
     }
 
-    FlagsAndCommand cmd = _sources[_currentSource].vertex(output);
+    FlagsAndCommand cmd = _sources[_currentSource].vertex(x, y);
 
     while (cmd == FlagsAndCommand.commandStop &&
         _currentSource < _sources.length - 1) {
       _currentSource++;
 
       // Get the first vertex of the next source
-      final nextCmd = _sources[_currentSource].vertex(output);
+      final nextCmd = _sources[_currentSource].vertex(x, y);
 
       // If we have a last point and the next path starts with moveTo,
       // connect them with a line
       if (_hasLastPoint && nextCmd.isMoveTo) {
-        final nextX = output.x;
-        final nextY = output.y;
+        final nextX = x.value;
+        final nextY = y.value;
 
         // Return a lineTo to connect the paths
-        output.set(_lastX, _lastY);
+        x.value = _lastX;
+        y.value = _lastY;
         _lastX = nextX;
         _lastY = nextY;
         return FlagsAndCommand.commandLineTo;
@@ -75,8 +78,8 @@ class ConnectedPaths implements IVertexSource {
 
     // Track the last point for connecting paths
     if (cmd.isVertex) {
-      _lastX = output.x;
-      _lastY = output.y;
+      _lastX = x.value;
+      _lastY = y.value;
       _hasLastPoint = true;
     }
 
@@ -86,12 +89,13 @@ class ConnectedPaths implements IVertexSource {
   @override
   Iterable<VertexData> vertices() sync* {
     rewind();
-    var output = VertexOutput();
+    var x = RefParam(0.0);
+    var y = RefParam(0.0);
 
     while (true) {
-      var cmd = vertex(output);
+      var cmd = vertex(x, y);
       if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
+      yield VertexData(cmd, x.value, y.value);
     }
   }
 

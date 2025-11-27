@@ -52,9 +52,8 @@ class GlyphSubstitution {
     }
 
     for (final lookup in _lookupTables) {
-      final glyphCount = glyphIndexList.count;
-      for (var pos = 0; pos < glyphCount; pos++) {
-        lookup.doSubstitutionAt(glyphIndexList, pos, glyphCount - pos);
+      for (var pos = 0; pos < glyphIndexList.count; pos++) {
+        lookup.doSubstitutionAt(glyphIndexList, pos, glyphIndexList.count - pos);
       }
     }
   }

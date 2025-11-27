@@ -13,6 +13,28 @@ import 'tables/maxp.dart';
 import 'tables/name_entry.dart';
 import 'tables/os2.dart';
 import 'tables/utils.dart';
+import 'tables/base.dart';
+import 'tables/jstf.dart';
+import 'tables/math.dart';
+import 'tables/colr.dart';
+import 'tables/cpal.dart';
+import 'tables/cff/cff_table.dart';
+import 'tables/eblc.dart';
+import 'tables/ebdt.dart';
+import 'tables/cblc.dart';
+import 'tables/cbdt.dart';
+import 'tables/svg_table.dart';
+import 'tables/variations/fvar.dart';
+import 'tables/variations/gvar.dart';
+import 'tables/variations/hvar.dart';
+import 'tables/variations/mvar.dart';
+import 'tables/variations/stat.dart';
+import 'tables/variations/vvar.dart';
+import 'tables/vhea.dart';
+import 'tables/vmtx.dart';
+import 'tables/gasp.dart';
+import 'tables/kern.dart';
+import 'tables/post.dart';
 
 /// Represents a complete typeface with all its tables and glyphs
 class Typeface {
@@ -31,8 +53,30 @@ class Typeface {
   GDEF? gdefTable;
   GSUB? gsubTable;
   GPOS? gposTable;
+  BASE? baseTable;
+  JSTF? jstfTable;
+  MathTable? mathTable;
+  COLR? colrTable;
+  CPAL? cpalTable;
+  CFFTable? cffTable;
+  EBLC? eblcTable;
+  EBDT? ebdtTable;
+  CBLC? cblcTable;
+  CBDT? cbdtTable;
+  SvgTable? svgTable;
+  FVar? fvarTable;
+  GVar? gvarTable;
+  HVar? hvarTable;
+  MVar? mvarTable;
+  STAT? statTable;
+  VVar? vvarTable;
+  VerticalHeader? vheaTable;
+  VerticalMetrics? vmtxTable;
+  Gasp? gaspTable;
+  Kern? kernTable;
+  PostTable? postTable;
 
-  Typeface._({
+  Typeface({
     required NameEntry nameEntry,
     required Bounds bounds,
     required int unitsPerEm,
@@ -46,6 +90,28 @@ class Typeface {
     this.gdefTable,
     this.gsubTable,
     this.gposTable,
+    this.baseTable,
+    this.jstfTable,
+    this.mathTable,
+    this.colrTable,
+    this.cpalTable,
+    this.cffTable,
+    this.eblcTable,
+    this.ebdtTable,
+    this.cblcTable,
+    this.cbdtTable,
+    this.svgTable,
+    this.fvarTable,
+    this.gvarTable,
+    this.hvarTable,
+    this.mvarTable,
+    this.statTable,
+    this.vvarTable,
+    this.vheaTable,
+    this.vmtxTable,
+    this.gaspTable,
+    this.kernTable,
+    this.postTable,
   })  : _nameEntry = nameEntry,
         _bounds = bounds,
         _unitsPerEm = unitsPerEm,
@@ -53,7 +119,6 @@ class Typeface {
         _horizontalMetrics = horizontalMetrics,
         _os2Table = os2Table;
 
-  /// Creates a Typeface from TrueType tables
   factory Typeface.fromTrueType({
     required NameEntry nameEntry,
     required Bounds bounds,
@@ -68,8 +133,30 @@ class Typeface {
     GDEF? gdefTable,
     GSUB? gsubTable,
     GPOS? gposTable,
+    BASE? baseTable,
+    JSTF? jstfTable,
+    MathTable? mathTable,
+    COLR? colrTable,
+    CPAL? cpalTable,
+    CFFTable? cffTable,
+    EBLC? eblcTable,
+    EBDT? ebdtTable,
+    CBLC? cblcTable,
+    CBDT? cbdtTable,
+    SvgTable? svgTable,
+    FVar? fvarTable,
+    GVar? gvarTable,
+    HVar? hvarTable,
+    MVar? mvarTable,
+    STAT? statTable,
+    VVar? vvarTable,
+    VerticalHeader? vheaTable,
+    VerticalMetrics? vmtxTable,
+    Gasp? gaspTable,
+    Kern? kernTable,
+    PostTable? postTable,
   }) {
-    final typeface = Typeface._(
+    final typeface = Typeface(
       nameEntry: nameEntry,
       bounds: bounds,
       unitsPerEm: unitsPerEm,
@@ -83,8 +170,30 @@ class Typeface {
       gdefTable: gdefTable,
       gsubTable: gsubTable,
       gposTable: gposTable,
+      baseTable: baseTable,
+      jstfTable: jstfTable,
+      mathTable: mathTable,
+      colrTable: colrTable,
+      cpalTable: cpalTable,
+      cffTable: cffTable,
+      eblcTable: eblcTable,
+      ebdtTable: ebdtTable,
+      cblcTable: cblcTable,
+      cbdtTable: cbdtTable,
+      svgTable: svgTable,
+      fvarTable: fvarTable,
+      gvarTable: gvarTable,
+      hvarTable: hvarTable,
+      mvarTable: mvarTable,
+      statTable: statTable,
+      vvarTable: vvarTable,
+      vheaTable: vheaTable,
+      vmtxTable: vmtxTable,
+      gaspTable: gaspTable,
+      kernTable: kernTable,
+      postTable: postTable,
     );
-    gdefTable?.fillGlyphData(typeface._glyphs);
+    gdefTable?.fillGlyphData(typeface.glyphs);
 
     final markGlyphSets = gdefTable?.markGlyphSetsTable;
     if (markGlyphSets != null) {

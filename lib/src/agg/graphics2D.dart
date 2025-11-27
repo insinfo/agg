@@ -8,7 +8,7 @@ import 'package:agg/src/agg/rasterizer_outline_aa.dart';
 import 'package:agg/src/agg/scanline_renderer.dart';
 import 'package:agg/src/agg/scanline_rasterizer.dart';
 import 'package:agg/src/agg/scanline_unpacked8.dart';
-import 'package:agg/src/agg/vertex_source/i_vertex_source.dart';
+import 'package:agg/src/agg/vertex_source/ivertex_source.dart';
 import 'package:agg/src/agg/vertex_source/vertex_storage.dart';
 import 'package:agg/src/agg/vertex_source/arc.dart';
 import 'package:agg/src/typography/openfont/glyph.dart';
@@ -16,6 +16,9 @@ import 'package:agg/src/typography/openfont/typeface.dart';
 import 'package:agg/src/typography/text_layout/glyph_layout.dart';
 import 'package:agg/src/agg/svg/svg_parser.dart';
 import 'package:agg/src/agg/svg/colored_vertex_source.dart';
+import 'package:agg/src/agg/svg/svg_paint.dart';
+import 'package:agg/src/agg/spans/span_allocator.dart';
+import 'package:agg/src/agg/spans/span_gradient.dart';
 
 abstract class IStyleHandler {
   bool is_solid(int style);
@@ -23,7 +26,7 @@ abstract class IStyleHandler {
 
 enum TransformQuality { Fastest, Best }
 
-/// TODO Minimal graphics context binding an image, rasterizer and scanline cache.
+/// Minimal graphics context binding an image, rasterizer and scanline cache.
 abstract class Graphics2D {
   TransformQuality _imageRenderQuality = TransformQuality.Fastest;
   TransformQuality get imageRenderQuality => _imageRenderQuality;
@@ -61,11 +64,38 @@ class BasicGraphics2D extends Graphics2D {
   }
 
   /// Render a vertex source as a filled shape.
-  void render(IVertexSource src, Color color) {
+  void render(IVertexSource src, dynamic paint) {
+    if (paint is Color) {
+      renderSolid(src, paint);
+    } else if (paint is SvgPaint) {
+      renderSvgPaint(src, paint);
+    }
+  }
+
+  void renderSolid(IVertexSource src, Color color) {
     rasterizer.reset();
     rasterizer.add_path(src);
     ScanlineRenderer.renderSolid(rasterizer, scanline, destImage, color);
     destImage.markImageChanged();
+  }
+
+  void renderSvgPaint(IVertexSource src, SvgPaint paint) {
+    if (paint is SvgPaintSolid) {
+      renderSolid(src, paint.color);
+    } else if (paint is SvgPaintLinearGradient) {
+      rasterizer.reset();
+      rasterizer.add_path(src);
+      
+      final allocator = SpanAllocator();
+      final generator = SpanGradientLinear(paint.x1, paint.y1, paint.x2, paint.y2);
+      
+      // Convert stops
+      final stops = paint.stops.map((s) => (offset: s.offset, color: s.color)).toList();
+      generator.buildLut(stops);
+      
+      ScanlineRenderer.generateAndRender(rasterizer, scanline, destImage, allocator, generator);
+      destImage.markImageChanged();
+    }
   }
 
   /// Draw a simple AA line using the outline rasterizer.
@@ -181,6 +211,7 @@ class BasicGraphics2D extends Graphics2D {
     final vs = VertexStorage();
     var first = true;
     for (final v in arc.vertices()) {
+      if (v.command.isStop) continue;
       if (first) {
         vs.moveTo(v.x, v.y);
         first = false;

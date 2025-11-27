@@ -1,4 +1,5 @@
-import 'i_vertex_source.dart';
+import 'package:agg/src/shared/ref_param.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
@@ -30,11 +31,12 @@ class ReversePath implements IVertexSource {
     _source!.rewind(pathId);
 
     // Read all vertices from the source
-    final output = VertexOutput();
+    final x = RefParam(0.0);
+    final y = RefParam(0.0);
     FlagsAndCommand cmd;
 
-    while ((cmd = _source!.vertex(output)) != FlagsAndCommand.commandStop) {
-      _vertices.add(VertexData(cmd, output.x, output.y));
+    while ((cmd = _source!.vertex(x, y)) != FlagsAndCommand.commandStop) {
+      _vertices.add(VertexData(cmd, x.value, y.value));
     }
 
     // Reverse the order
@@ -44,14 +46,16 @@ class ReversePath implements IVertexSource {
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
     if (_currentVertex >= _vertices.length) {
-      output.set(0, 0);
+      x.value = 0;
+      y.value = 0;
       return FlagsAndCommand.commandStop;
     }
 
     final v = _vertices[_currentVertex];
-    output.set(v.x, v.y);
+    x.value = v.x;
+    y.value = v.y;
     _currentVertex++;
 
     return v.command;
@@ -60,12 +64,13 @@ class ReversePath implements IVertexSource {
   @override
   Iterable<VertexData> vertices() sync* {
     rewind();
-    var output = VertexOutput();
+    var x = RefParam(0.0);
+    var y = RefParam(0.0);
 
     while (true) {
-      var cmd = vertex(output);
+      var cmd = vertex(x, y);
       if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
+      yield VertexData(cmd, x.value, y.value);
     }
   }
 

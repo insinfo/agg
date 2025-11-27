@@ -1,4 +1,5 @@
-import 'i_vertex_source.dart';
+import 'package:agg/src/shared/ref_param.dart';
+import 'ivertex_source.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
 
@@ -102,14 +103,16 @@ class VertexStorage implements IVertexSource {
   }
 
   @override
-  FlagsAndCommand vertex(VertexOutput output) {
+  FlagsAndCommand vertex(RefParam<double> x, RefParam<double> y) {
     if (_iteratorIndex >= _vertices.length) {
-      output.set(0, 0);
+      x.value = 0;
+      y.value = 0;
       return FlagsAndCommand.commandStop;
     }
 
     var v = _vertices[_iteratorIndex++];
-    output.set(v.x, v.y);
+    x.value = v.x;
+    y.value = v.y;
     return v.command;
   }
 
@@ -136,13 +139,14 @@ class VertexStorage implements IVertexSource {
 
   /// Concatenate another path
   void concat(IVertexSource other) {
-    var output = VertexOutput();
+    var x = RefParam<double>(0.0);
+    var y = RefParam<double>(0.0);
     other.rewind();
 
     while (true) {
-      var cmd = other.vertex(output);
+      var cmd = other.vertex(x, y);
       if (cmd.isStop) break;
-      addVertex(output.x, output.y, cmd);
+      addVertex(x.value, y.value, cmd);
     }
   }
 

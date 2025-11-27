@@ -1,128 +1,142 @@
 import 'dart:math' as math;
-import 'i_vertex_source.dart';
+import '../primitives/point2d.dart';
 import 'path_commands.dart';
 import 'vertex_data.dart';
+import 'vertex_source_legacy_support.dart';
 
-/// Direction for arc drawing
-enum Direction {
-  clockwise,
-  counterClockwise,
+enum ArcDirection {
+  clockWise,
+  counterClockWise,
 }
 
-/// Arc vertex source
-class Arc implements IVertexSource {
-  double originX;
-  double originY;
-  double radiusX;
-  double radiusY;
-  double startAngle;
-  double endAngle;
-  Direction direction;
-  double scale;
+class Arc extends VertexSourceLegacySupport {
+  ArcDirection _direction = ArcDirection.counterClockWise;
+  double _endAngle = 0.0;
+  Point2D _origin = Point2D();
+  Point2D _radius = Point2D();
+  double resolutionScale = 1.0;
+  double _startAngle = 0.0;
+  int numSegments = 0;
 
-  int _currentStep = 0;
-  int _numSteps = 0;
-
-  Arc(
-    this.originX,
-    this.originY,
-    this.radiusX,
-    this.radiusY,
-    this.startAngle,
-    this.endAngle, {
-    this.direction = Direction.counterClockwise,
-    this.scale = 1.0,
-  }) {
-    _calculateNumSteps();
+  Arc([double originX = 0, double originY = 0, double radiusX = 0, double radiusY = 0, double startAngle = 0, double endAngle = 0, ArcDirection direction = ArcDirection.counterClockWise, int numSegments = 0]) {
+    if (originX != 0 || originY != 0 || radiusX != 0 || radiusY != 0 || startAngle != 0 || endAngle != 0) {
+      init(originX, originY, radiusX, radiusY, startAngle, endAngle, direction, numSegments);
+    }
   }
 
-  void init(double x, double y, double rx, double ry, double start, double end,
-      {Direction dir = Direction.counterClockwise}) {
-    originX = x;
-    originY = y;
-    radiusX = rx;
-    radiusY = ry;
-    startAngle = start;
-    endAngle = end;
-    direction = dir;
-    _calculateNumSteps();
+  Arc.fromPoint(Point2D origin, Point2D radius, double startAngle, double endAngle, [ArcDirection direction = ArcDirection.counterClockWise, int numSegments = 0]) {
+    initFromPoint(origin, radius, startAngle, endAngle, direction, numSegments);
   }
 
-  void _calculateNumSteps() {
-    double da = (endAngle - startAngle).abs();
-    if (da >= math.pi * 2.0 - 0.01) {
-      da = math.pi * 2.0;
-    }
-
-    // Calculate number of steps based on arc length and scale
-    double radius = math.max(radiusX, radiusY);
-    _numSteps = (da / (2.0 * math.acos(1.0 - 0.125 / (radius * scale)))).ceil();
-    if (_numSteps < 4) _numSteps = 4;
+  Arc.fromCircle(Point2D origin, double radius, double startAngle, double endAngle, [ArcDirection direction = ArcDirection.counterClockWise]) {
+    initFromPoint(origin, Point2D(radius, radius), startAngle, endAngle, direction);
   }
 
-  @override
-  void rewind([int pathId = 0]) {
-    _currentStep = 0;
+  void init(double originX, double originY, double radiusX, double radiusY, double startAngle, double endAngle, [ArcDirection direction = ArcDirection.counterClockWise, int numSegments = 0]) {
+    initFromPoint(Point2D(originX, originY), Point2D(radiusX, radiusY), startAngle, endAngle, direction, numSegments);
   }
 
-  @override
-  FlagsAndCommand vertex(VertexOutput output) {
-    if (_currentStep == 0) {
-      double angle = startAngle;
-      output.set(
-        originX + math.cos(angle) * radiusX,
-        originY + math.sin(angle) * radiusY,
-      );
-      _currentStep++;
-      return FlagsAndCommand.commandMoveTo;
-    }
-
-    if (_currentStep > _numSteps) {
-      output.set(0, 0);
-      return FlagsAndCommand.commandStop;
-    }
-
-    double angle;
-    if (direction == Direction.counterClockwise) {
-      angle = startAngle + (endAngle - startAngle) * _currentStep / _numSteps;
-    } else {
-      angle = startAngle - (startAngle - endAngle) * _currentStep / _numSteps;
-    }
-
-    output.set(
-      originX + math.cos(angle) * radiusX,
-      originY + math.sin(angle) * radiusY,
-    );
-    _currentStep++;
-    return FlagsAndCommand.commandLineTo;
-  }
-
-  @override
-  Iterable<VertexData> vertices() sync* {
-    rewind();
-    var output = VertexOutput();
-
-    while (true) {
-      var cmd = vertex(output);
-      if (cmd.isStop) break;
-      yield VertexData(cmd, output.x, output.y);
-    }
+  void initFromPoint(Point2D origin, Point2D radius, double startAngle, double endAngle, [ArcDirection direction = ArcDirection.counterClockWise, int numSegments = 0]) {
+    this.numSegments = numSegments;
+    _origin = origin;
+    _radius = radius;
+    _startAngle = startAngle;
+    _endAngle = endAngle;
+    _direction = direction;
   }
 
   @override
   int getLongHashCode([int hash = 0xcbf29ce484222325]) {
-    hash ^= originX.hashCode;
-    hash *= 1099511628211;
-    hash ^= originY.hashCode;
-    hash *= 1099511628211;
-    hash ^= radiusX.hashCode;
-    hash *= 1099511628211;
-    hash ^= radiusY.hashCode;
-    hash *= 1099511628211;
-    hash ^= startAngle.hashCode;
-    hash *= 1099511628211;
-    hash ^= endAngle.hashCode;
-    hash *= 1099511628211;
     return hash;
   }
+
+  @override
+  Iterable<VertexData> vertices() {
+    if (numSegments == 0) {
+      return _deltaVertices();
+    } else {
+      return _stepVertices();
+    }
+  }
+
+  Iterable<VertexData> _deltaVertices() sync* {
+    double averageRadius = (_radius.x.abs() + _radius.y.abs()) / 2;
+    var flattenedDeltaAngle = math.acos(averageRadius / (averageRadius + 0.125 / resolutionScale)) * 2;
+    
+    double currentEndAngle = _endAngle;
+    while (currentEndAngle < _startAngle) {
+      currentEndAngle += math.pi * 2.0;
+    }
+
+    if (_direction == ArcDirection.counterClockWise) {
+      yield VertexData(FlagsAndCommand.commandMoveTo, _origin.x + math.cos(_startAngle) * _radius.x, _origin.y + math.sin(_startAngle) * _radius.y);
+
+      double angle = _startAngle;
+      int numSteps = ((currentEndAngle - _startAngle) / flattenedDeltaAngle).toInt();
+
+      for (int i = 0; i <= numSteps; i++) {
+        if (angle < currentEndAngle) {
+          yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(angle) * _radius.x, _origin.y + math.sin(angle) * _radius.y);
+          angle += flattenedDeltaAngle;
+        }
+      }
+
+      yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(currentEndAngle) * _radius.x, _origin.y + math.sin(currentEndAngle) * _radius.y);
+    } else {
+      yield VertexData(FlagsAndCommand.commandMoveTo, _origin.x + math.cos(currentEndAngle) * _radius.x, _origin.y + math.sin(currentEndAngle) * _radius.y);
+
+      double angle = currentEndAngle;
+      int numSteps = ((currentEndAngle - _startAngle) / flattenedDeltaAngle).toInt();
+      for (int i = 0; i <= numSteps; i++) {
+        yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(angle) * _radius.x, _origin.y + math.sin(angle) * _radius.y);
+        angle -= flattenedDeltaAngle;
+      }
+
+      yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(_startAngle) * _radius.x, _origin.y + math.sin(_startAngle) * _radius.y);
+    }
+
+    yield VertexData(FlagsAndCommand.commandStop, 0, 0);
+  }
+
+  Iterable<VertexData> _stepVertices() sync* {
+    double currentEndAngle = _endAngle;
+    while (currentEndAngle < _startAngle) {
+      currentEndAngle += math.pi * 2.0;
+    }
+
+    var flattenedDeltaAngle = (currentEndAngle - _startAngle) / numSegments;
+
+    if (_direction == ArcDirection.counterClockWise) {
+      yield VertexData(FlagsAndCommand.commandMoveTo, _origin.x + math.cos(_startAngle) * _radius.x, _origin.y + math.sin(_startAngle) * _radius.y);
+
+      double angle = _startAngle;
+
+      for (int i = 0; i <= numSegments; i++) {
+        if (angle < currentEndAngle) {
+          yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(angle) * _radius.x, _origin.y + math.sin(angle) * _radius.y);
+          angle += flattenedDeltaAngle;
+        }
+      }
+
+      yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(currentEndAngle) * _radius.x, _origin.y + math.sin(currentEndAngle) * _radius.y);
+    } else {
+      yield VertexData(FlagsAndCommand.commandMoveTo, _origin.x + math.cos(currentEndAngle) * _radius.x, _origin.y + math.sin(currentEndAngle) * _radius.y);
+
+      double angle = currentEndAngle;
+      int numSteps = ((currentEndAngle - _startAngle) / flattenedDeltaAngle).toInt();
+      for (int i = 0; i <= numSteps; i++) {
+        yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(angle) * _radius.x, _origin.y + math.sin(angle) * _radius.y);
+        angle -= flattenedDeltaAngle;
+      }
+
+      yield VertexData(FlagsAndCommand.commandLineTo, _origin.x + math.cos(_startAngle) * _radius.x, _origin.y + math.sin(_startAngle) * _radius.y);
+    }
+
+    yield VertexData(FlagsAndCommand.commandStop, 0, 0);
+  }
+
+  double get originX => _origin.x;
+  double get originY => _origin.y;
+  double get radiusX => _radius.x;
+  double get radiusY => _radius.y;
 }

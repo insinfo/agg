@@ -58,6 +58,10 @@ class RectangleInt {
     top += v;
   }
 
+  void expandToInclude(RectangleInt other) {
+    unionWith(other);
+  }
+
   void intersectWith(RectangleInt other) {
     if (left < other.left) left = other.left;
     if (bottom < other.bottom) bottom = other.bottom;
@@ -87,6 +91,31 @@ class RectangleInt {
     if (bottom > other.bottom) bottom = other.bottom;
     if (right < other.right) right = other.right;
     if (top < other.top) top = other.top;
+  }
+
+  void Offset(int dx, int dy) {
+    left += dx;
+    right += dx;
+    bottom += dy;
+    top += dy;
+  }
+
+  bool IntersectRectangles(RectangleInt r1, RectangleInt r2) {
+    left = r1.left;
+    bottom = r1.bottom;
+    right = r1.right;
+    top = r1.top;
+    
+    if (left < r2.left) left = r2.left;
+    if (bottom < r2.bottom) bottom = r2.bottom;
+    if (right > r2.right) right = r2.right;
+    if (top > r2.top) top = r2.top;
+
+    if (left > right || bottom > top) {
+      left = right = bottom = top = 0;
+      return false;
+    }
+    return true;
   }
 
   @override

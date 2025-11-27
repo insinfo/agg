@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:agg/src/agg/image/iimage.dart';
 import 'package:agg/src/agg/primitives/color.dart';
-import 'package:agg/src/agg/image/iimage_float.dart';
 import 'package:agg/src/agg/primitives/color_f.dart';
 import 'package:agg/src/shared/ref_param.dart';
 

@@ -3,43 +3,6 @@ import 'dart:typed_data';
 import 'package:agg/src/agg/primitives/color.dart';
 import 'package:agg/src/agg/primitives/color_f.dart';
 
-abstract class GoodInterfaceThinking // TODO: switch to an interface more like this for blenders.
-{
-  int get numPixelBits;
-
-  Color PixelToColorRGBA_Bytes(Uint8List buffer, int bufferOffset);
-
-  void setPixels(
-      Uint8List buffer, int bufferOffset, Color sourceColor, int count);
-
-  void setPixels2(Uint8List buffer, int bufferOffset, List<Color> sourceColors,
-      int sourceColorsOffset, int count);
-
-  void blendPixels(
-      Uint8List buffer, int bufferOffset, Color sourceColor, int count);
-
-  void blendPixels2(Uint8List buffer, int bufferOffset,
-      List<Color> sourceColors, int sourceColorsOffset, int count);
-
-  // and we need some that use coverage values
-  void blendPixels3(
-      Uint8List buffer,
-      int bufferOffset,
-      List<Color> sourceColors,
-      int sourceColorsOffset,
-      int sourceCover,
-      int count);
-
-  void blendPixels4(
-      Uint8List buffer,
-      int bufferOffset,
-      List<Color> sourceColors,
-      int sourceColorsOffset,
-      Uint8List sourceCovers,
-      int sourceCoversOffset,
-      int count);
-}
-
 abstract class IRecieveBlenderByte {
   int get numPixelBits;
 

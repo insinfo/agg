@@ -19,6 +19,32 @@ import 'tables/maxp.dart';
 import 'tables/name_entry.dart';
 import 'tables/os2.dart';
 import 'tables/table_entry.dart';
+import 'tables/base.dart';
+import 'tables/jstf.dart';
+import 'tables/math.dart';
+import 'tables/colr.dart';
+import 'tables/cpal.dart';
+import 'tables/cff/cff_table.dart';
+import 'tables/eblc.dart';
+import 'tables/ebdt.dart';
+import 'tables/cblc.dart';
+import 'tables/cbdt.dart';
+import 'tables/svg_table.dart';
+import 'tables/variations/fvar.dart';
+import 'tables/variations/gvar.dart';
+import 'tables/variations/hvar.dart';
+import 'tables/variations/mvar.dart';
+import 'tables/variations/stat.dart';
+import 'tables/variations/vvar.dart';
+import 'tables/vhea.dart';
+import 'tables/vmtx.dart';
+import 'tables/gasp.dart';
+import 'tables/kern.dart';
+import 'tables/post.dart';
+
+import 'glyph.dart';
+import 'webfont/woff_reader.dart';
+import 'webfont/woff2_reader.dart';
 
 /// Flags for controlling what data to read from a font file
 enum ReadFlags {
@@ -114,11 +140,13 @@ class OpenFontReader {
     final majorVersion = reader.readUInt16();
     final minorVersion = reader.readUInt16();
 
-    if (KnownFontFiles.isTtcf(majorVersion, minorVersion) ||
-        KnownFontFiles.isWoff(majorVersion, minorVersion) ||
-        KnownFontFiles.isWoff2(majorVersion, minorVersion)) {
+    if (KnownFontFiles.isWoff(majorVersion, minorVersion)) {
+      return WoffReader().read(reader);
+    } else if (KnownFontFiles.isWoff2(majorVersion, minorVersion)) {
+      return Woff2Reader().read(reader);
+    } else if (KnownFontFiles.isTtcf(majorVersion, minorVersion)) {
       throw UnimplementedError(
-        'Font collections and WOFF formats are not supported yet',
+        'Font collections are not supported yet',
       );
     }
 
@@ -132,6 +160,14 @@ class OpenFontReader {
       tables.addEntry(UnreadTableEntry(_readTableHeader(reader)));
     }
 
+    return _readTypefaceFromTables(tables, reader);
+  }
+
+  /// Read a typeface from a pre-populated collection of tables
+  Typeface? readTableEntryCollection(
+    TableEntryCollection tables,
+    ByteOrderSwappingBinaryReader reader,
+  ) {
     return _readTypefaceFromTables(tables, reader);
   }
 
@@ -214,10 +250,25 @@ class OpenFontReader {
     }
 
     // For now, return basic info
-    // TODO: Read name table for actual font name
+    String name = 'Font';
+    String subFamily = 'Regular';
+
+    final nameEntry = tables.tryGetTable('name');
+    if (nameEntry is UnreadTableEntry) {
+      final loadedName = NameEntry();
+      loadedName.header = nameEntry.header;
+      loadedName.loadDataFrom(reader);
+      if (loadedName.fontName.isNotEmpty) {
+        name = loadedName.fontName;
+      }
+      if (loadedName.fontSubFamily.isNotEmpty) {
+        subFamily = loadedName.fontSubFamily;
+      }
+    }
+
     return PreviewFontInfo(
-      name: 'Font',
-      subFamilyName: 'Regular',
+      name: name,
+      subFamilyName: subFamily,
     );
   }
 
@@ -297,29 +348,75 @@ class OpenFontReader {
       reader,
       HorizontalMetrics(hhea.horizontalMetricsCount, maxProfile.glyphCount),
     );
-    final cmap = readTableIfExists(tables, reader, Cmap());
-    final glyphLocations = readTableIfExists(
-      tables,
-      reader,
-      GlyphLocations(maxProfile.glyphCount, head.wideGlyphLocations),
-    );
-    final glyf = glyphLocations != null
-        ? readTableIfExists(tables, reader, Glyf(glyphLocations))
+    
+    final post = readTableIfExists(tables, reader, PostTable());
+    final vhea = readTableIfExists(tables, reader, VerticalHeader());
+
+    final vmtx = vhea != null 
+        ? readTableIfExists(
+            tables, 
+            reader, 
+            VerticalMetrics(vhea.numOfLongVerMetrics, maxProfile.glyphCount))
         : null;
 
-    if (hmtx == null || glyf == null || glyf.glyphs == null) {
+    final gasp = readTableIfExists(tables, reader, Gasp());
+    final kern = readTableIfExists(tables, reader, Kern());
+
+    final cmap = readTableIfExists(tables, reader, Cmap());
+    
+    final cff = readTableIfExists(tables, reader, CFFTable());
+    final eblc = readTableIfExists(tables, reader, EBLC());
+    final ebdt = readTableIfExists(tables, reader, EBDT());
+    final cblc = readTableIfExists(tables, reader, CBLC());
+    final cbdt = readTableIfExists(tables, reader, CBDT());
+    final svg = readTableIfExists(tables, reader, SvgTable());
+    final fvar = readTableIfExists(tables, reader, FVar());
+    final gvar = readTableIfExists(tables, reader, GVar());
+    final hvar = readTableIfExists(tables, reader, HVar());
+    final mvar = readTableIfExists(tables, reader, MVar());
+    final vvar = readTableIfExists(tables, reader, VVar());
+    final stat = readTableIfExists(tables, reader, STAT());
+    
+    List<Glyph>? glyphs;
+    
+    if (cff != null && cff.cff1FontSet != null && cff.cff1FontSet!.fonts.isNotEmpty) {
+      glyphs = cff.cff1FontSet!.fonts[0].glyphs;
+    } else {
+      final glyphLocations = readTableIfExists(
+        tables,
+        reader,
+        GlyphLocations(maxProfile.glyphCount, head.wideGlyphLocations),
+      );
+      final glyf = glyphLocations != null
+          ? readTableIfExists(tables, reader, Glyf(glyphLocations))
+          : null;
+      glyphs = glyf?.glyphs;
+
+      // If no glyphs found yet (e.g. bitmap-only font), create empty glyphs
+      if (glyphs == null && (eblc != null || svg != null || cblc != null)) {
+        glyphs = List<Glyph>.generate(
+            maxProfile.glyphCount, (index) => Glyph.empty(index));
+      }
+    }
+
+    if (hmtx == null || glyphs == null) {
       return null;
     }
 
     final gdef = readTableIfExists(tables, reader, GDEF());
     final gsub = readTableIfExists(tables, reader, GSUB());
     final gpos = readTableIfExists(tables, reader, GPOS());
+    final base = readTableIfExists(tables, reader, BASE());
+    final jstf = readTableIfExists(tables, reader, JSTF());
+    final math = readTableIfExists(tables, reader, MathTable());
+    final colr = readTableIfExists(tables, reader, COLR());
+    final cpal = readTableIfExists(tables, reader, CPAL());
 
     final typeface = Typeface.fromTrueType(
       nameEntry: nameEntry,
       bounds: head.bounds,
       unitsPerEm: head.unitsPerEm,
-      glyphs: glyf.glyphs!,
+      glyphs: glyphs,
       horizontalMetrics: hmtx,
       os2Table: os2,
       cmapTable: cmap,
@@ -328,6 +425,28 @@ class OpenFontReader {
       gdefTable: gdef,
       gsubTable: gsub,
       gposTable: gpos,
+      baseTable: base,
+      jstfTable: jstf,
+      mathTable: math,
+      colrTable: colr,
+      cpalTable: cpal,
+      cffTable: cff,
+      eblcTable: eblc,
+      ebdtTable: ebdt,
+      cblcTable: cblc,
+      cbdtTable: cbdt,
+      svgTable: svg,
+      fvarTable: fvar,
+      gvarTable: gvar,
+      hvarTable: hvar,
+      mvarTable: mvar,
+      vvarTable: vvar,
+      statTable: stat,
+      vheaTable: vhea,
+      vmtxTable: vmtx,
+      gaspTable: gasp,
+      kernTable: kern,
+      postTable: post,
     );
     return typeface;
   }

@@ -7,7 +7,7 @@ import 'package:agg/src/agg/primitives/rectangle_int.dart';
 import 'package:agg/src/agg/primitives/color.dart';
 import 'package:agg/src/agg/rasterizer_outline_aa.dart';
 
-/// TODO Minimal image-backed line renderer: projects subpixel coords into pixel
+/// Minimal image-backed line renderer: projects subpixel coords into pixel
 /// space and draws a simple solid line.
 /// AA line renderer using Xiaolin Wu with optional thickness (in pixels).
 class ImageLineRenderer extends LineRenderer {

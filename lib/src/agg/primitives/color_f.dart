@@ -37,6 +37,34 @@ class ColorF implements IColorType {
     return Color(red0To255, green0To255, blue0To255, alpha0To255);
   }
 
+  void getHSL(List<double> hsl) {
+    double max = red > green ? (red > blue ? red : blue) : (green > blue ? green : blue);
+    double min = red < green ? (red < blue ? red : blue) : (green < blue ? green : blue);
+    double h = 0, s = 0, l = (max + min) / 2;
+
+    if (max == min) {
+      h = s = 0; // achromatic
+    } else {
+      double d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max == red) {
+        h = (green - blue) / d + (green < blue ? 6 : 0);
+      } else if (max == green) {
+        h = (blue - red) / d + 2;
+      } else {
+        h = (red - green) / d + 4;
+      }
+      h /= 6;
+    }
+    if (hsl.length >= 3) {
+      hsl[0] = h;
+      hsl[1] = s;
+      hsl[2] = l;
+    } else {
+      hsl.addAll([h, s, l]);
+    }
+  }
+
   static ColorF fromHSL(double h, double s, double l) {
     // Simple HSL to RGB conversion
     double r, g, b;

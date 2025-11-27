@@ -5,7 +5,7 @@ import 'package:agg/src/agg/scanline_rasterizer.dart';
 import 'package:agg/src/agg/scanline_renderer.dart';
 import 'package:agg/src/agg/scanline_unpacked8.dart';
 import 'package:agg/src/agg/vertex_source/vertex_storage.dart';
-import 'package:agg/src/agg/vertex_source/i_vertex_source.dart';
+import 'package:agg/src/agg/vertex_source/ivertex_source.dart';
 
 enum CompoundLayerOrder { direct, inverse }
 

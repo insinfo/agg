@@ -1,3 +1,5 @@
+import '../vertex_sequence.dart';
+
 /// Path command flags for vertex data
 class FlagsAndCommand {
   final int value;
@@ -150,6 +152,18 @@ class ShapePath {
   static bool isCCW(FlagsAndCommand cmd) => cmd.isCCW;
   static bool isCW(FlagsAndCommand cmd) => cmd.isCW;
 
+  static FlagsAndCommand getCloseFlag(FlagsAndCommand cmd) {
+    return cmd & FlagsAndCommand.flagClose;
+  }
+
+  static FlagsAndCommand getOrientation(FlagsAndCommand cmd) {
+    return cmd & (FlagsAndCommand.flagCCW | FlagsAndCommand.flagCW);
+  }
+
+  static bool isOriented(FlagsAndCommand cmd) {
+    return (cmd.value & (FlagsAndCommand.flagCCW.value | FlagsAndCommand.flagCW.value)) != 0;
+  }
+
   static FlagsAndCommand getCommand(FlagsAndCommand cmd) {
     return FlagsAndCommand.fromValue(
         cmd.value & FlagsAndCommand.commandMask.value);
@@ -167,5 +181,33 @@ class ShapePath {
 
   static FlagsAndCommand setFlags(FlagsAndCommand cmd, FlagsAndCommand flags) {
     return FlagsAndCommand.fromValue(clearFlags(cmd).value | flags.value);
+  }
+
+  static void shortenPath(VertexSequence vs, double s, [int closed = 0]) {
+    if (s > 0.0 && vs.length > 1) {
+      double d;
+      int n = vs.length - 2;
+      while (n >= 0) {
+        d = vs[n].dist;
+        if (d > s) break;
+        vs.removeLast();
+        s -= d;
+        --n;
+      }
+      if (vs.length < 2) {
+        vs.clear();
+      } else {
+        n = vs.length - 1;
+        VertexDistance prev = vs[n - 1];
+        VertexDistance last = vs[n];
+        d = (prev.dist - s) / prev.dist;
+        double x = prev.x + (last.x - prev.x) * d;
+        double y = prev.y + (last.y - prev.y) * d;
+        last.x = x;
+        last.y = y;
+        if (!prev.isEqual(last)) vs.removeLast();
+        vs.close(closed != 0);
+      }
+    }
   }
 }

@@ -23,6 +23,8 @@ class VertexDistance implements XY {
 class VertexSequence {
   final List<VertexDistance> _items = <VertexDistance>[];
 
+  List<VertexDistance> get items => _items;
+
   int get length => _items.length;
 
   VertexDistance operator [](int index) => _items[index];
@@ -41,7 +43,7 @@ class VertexSequence {
   }
 
   void modifyLast(VertexDistance val) {
-    _items.removeLast();
+    removeLast();
     add(val);
   }
 
@@ -58,6 +60,16 @@ class VertexSequence {
         if (_items[_items.length - 1].isEqual(_items[0])) break;
         _items.removeLast();
       }
+    }
+  }
+
+  void clear() {
+    _items.clear();
+  }
+
+  void removeLast() {
+    if (_items.isNotEmpty) {
+      _items.removeLast();
     }
   }
 

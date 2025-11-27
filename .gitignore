@@ -3,5 +3,6 @@
 pubspec.lock
 .packages
 
+agg-2.6-cpp/
 agg-sharp/
 .agent/

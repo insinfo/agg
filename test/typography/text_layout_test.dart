@@ -17,7 +17,8 @@ import 'package:agg/src/typography/openfont/tables/utils.dart';
 import 'package:agg/src/typography/openfont/tables/coverage_table.dart';
 import 'package:agg/src/typography/openfont/tables/feature_list.dart';
 import 'package:agg/src/typography/openfont/tables/gdef.dart';
-import 'package:agg/src/typography/openfont/tables/gpos.dart';
+import 'package:agg/src/typography/openfont/tables/gpos.dart' as gpos_table;
+import 'package:agg/src/typography/openfont/tables/gsub.dart' as gsub_table;
 import 'package:agg/src/typography/openfont/tables/class_def_table.dart';
 import 'package:agg/src/typography/openfont/tables/script_list.dart';
 import 'package:agg/src/typography/openfont/tables/script_table.dart';
@@ -203,7 +204,7 @@ void main() {
 
   group('GlyphLayout', () {
     // Helper to create a minimal typeface for testing
-    Typeface createTestTypeface({GPOS? gpos}) {
+    Typeface createTestTypeface({gpos_table.GPOS? gpos}) {
       final nameEntry = NameEntry();
       nameEntry.fontName = 'Test Font';
       nameEntry.fontSubFamily = 'Regular';
@@ -376,8 +377,8 @@ void main() {
         baseGlyph: 1,
         markGlyph: 2,
         markClass: 0,
-        baseAnchor: AnchorPoint(format: 1, xcoord: 400, ycoord: 10),
-        markAnchor: AnchorPoint(format: 1, xcoord: 50, ycoord: 3),
+        baseAnchor: gpos_table.AnchorPoint(format: 1, xcoord: 400, ycoord: 10),
+        markAnchor: gpos_table.AnchorPoint(format: 1, xcoord: 50, ycoord: 3),
       );
       final typeface = _makeTypeface(
         glyphCount: 3,
@@ -411,8 +412,8 @@ void main() {
         mark2Glyph: 2,
         mark1Glyph: 3,
         mark1Class: 1,
-        mark1Anchor: AnchorPoint(format: 1, xcoord: 5, ycoord: 2),
-        mark2AnchorForClass: AnchorPoint(format: 1, xcoord: 9, ycoord: -1),
+        mark1Anchor: gpos_table.AnchorPoint(format: 1, xcoord: 5, ycoord: 2),
+        mark2AnchorForClass: gpos_table.AnchorPoint(format: 1, xcoord: 9, ycoord: -1),
       );
       final typeface = _makeTypeface(
         glyphCount: 4,
@@ -433,6 +434,86 @@ void main() {
       expect(plans.count, equals(2));
       expect(plans[1].x, equals(4));
       expect(plans[1].y, equals(-3));
+    });
+
+    test('applies GSUB ligature substitution end-to-end', () {
+      // glyphs: 0 (missing), 1 'f', 2 'i', 3 'fi' (ligature)
+      final gsub = _buildLigatureGsub(
+        firstGlyph: 1,
+        otherComponents: [2],
+        ligatureGlyph: 3,
+      );
+      final typeface = _makeTypeface(
+        glyphCount: 4,
+        advances: [0, 300, 300, 550], // f=300, i=300, fi=550
+        cmap: {
+          'f'.codeUnitAt(0): 1,
+          'i'.codeUnitAt(0): 2,
+        },
+        gsub: gsub,
+      );
+
+      final layout = GlyphLayout()..typeface = typeface;
+      layout.layout('fi');
+      final plans = layout.generateGlyphPlans(1.0);
+
+      // Should be replaced by single ligature glyph
+      expect(plans.count, equals(1));
+      expect(plans[0].glyphIndex, equals(3));
+      expect(plans[0].advanceX, equals(550));
+    });
+
+    test('applies mark-to-ligature positioning end-to-end', () {
+      // glyphs: 0 (missing), 1 'f', 2 'i', 3 'fi', 4 mark
+      final gdef = _buildMarkGdef(
+        glyphClasses: [0, 1, 1, 2, 3], // 3=ligature, 4=mark
+        markClasses: [0, 0, 0, 0, 0],
+      );
+      final gpos = _buildMarkToLigatureGpos(
+        ligatureGlyph: 3,
+        markGlyph: 4,
+        markClass: 0,
+        componentIndex: 1,
+        ligatureAnchor: gpos_table.AnchorPoint(format: 1, xcoord: 500, ycoord: 50),
+        markAnchor: gpos_table.AnchorPoint(format: 1, xcoord: 10, ycoord: 5),
+      );
+      
+      final typeface = _makeTypeface(
+        glyphCount: 5,
+        advances: [0, 300, 300, 600, 0],
+        cmap: {
+          'f'.codeUnitAt(0): 1,
+          'i'.codeUnitAt(0): 2,
+          '^'.codeUnitAt(0): 4,
+        },
+        gdef: gdef,
+        gpos: gpos,
+      );
+
+      // Hack to inject GSUB for ligature formation
+      final gsub = _buildLigatureGsub(
+        firstGlyph: 1,
+        otherComponents: [2],
+        ligatureGlyph: 3,
+      );
+      typeface.gsubTable = gsub;
+      // Typeface has gsubTable field which is GSUB?
+      // Let's check Typeface class.
+      // Typeface has `GSUB? gsubTable`.
+      // So `typeface.gsubTable = gsub;` works.
+      
+      final layout = GlyphLayout()..typeface = typeface;
+      layout.layout('fi^');
+      final plans = layout.generateGlyphPlans(1.0);
+
+      expect(plans.count, equals(2));
+      expect(plans[0].glyphIndex, equals(3)); // ligature
+      expect(plans[1].glyphIndex, equals(4)); // mark
+
+      // Mark x = ligAnchor.x - markAnchor.x = 500 - 10 = 490
+      // Mark y = ligAnchor.y - markAnchor.y = 50 - 5 = 45
+      expect(plans[1].x, equals(490));
+      expect(plans[1].y, equals(45));
     });
   });
 }
@@ -496,19 +577,19 @@ class _DummyHorizontalMetrics extends HorizontalMetrics {
   }
 }
 
-GPOS _buildKernGpos(int adjust) {
-  final lookup = LookupTable(2, 0, 0);
+gpos_table.GPOS _buildKernGpos(int adjust) {
+  final lookup = gpos_table.LookupTable(2, 0, 0);
   final coverage = _StubCoverageTable({1}); // first glyph in pair
-  final pairSet = PairSetTable([
-    PairSet(
+  final pairSet = gpos_table.PairSetTable([
+    gpos_table.PairSet(
       2, // second glyph
-      ValueRecord()
-        ..valueFormat = ValueRecord.fmtXAdvance
+      gpos_table.ValueRecord()
+        ..valueFormat = gpos_table.ValueRecord.fmtXAdvance
         ..xAdvance = adjust,
       null,
     ),
   ]);
-  final sub = LkSubTableType2Fmt1(lookup, coverage, [pairSet]);
+  final sub = gpos_table.LkSubTableType2Fmt1(lookup, coverage, [pairSet]);
   lookup.subTables.add(sub);
 
   final feature = FeatureTable()
@@ -525,7 +606,7 @@ GPOS _buildKernGpos(int adjust) {
     ..scriptTag = _tag('DFLT');
   final scriptList = ScriptList()..['DFLT'] = script;
 
-  final gpos = GPOS()
+  final gpos = gpos_table.GPOS()
     ..majorVersion = 1
     ..minorVersion = 0
     ..featureList = featureList
@@ -570,22 +651,22 @@ GDEF _buildMarkGdef({
     ..markAttachmentClassDef = markClassDef;
 }
 
-GPOS _buildMarkToBaseGpos({
+gpos_table.GPOS _buildMarkToBaseGpos({
   required int baseGlyph,
   required int markGlyph,
   required int markClass,
-  required AnchorPoint baseAnchor,
-  required AnchorPoint markAnchor,
+  required gpos_table.AnchorPoint baseAnchor,
+  required gpos_table.AnchorPoint markAnchor,
 }) {
-  final lookup = LookupTable(4, 0, 0);
-  final sub = LkSubTableType4(lookup)
+  final lookup = gpos_table.LookupTable(4, 0, 0);
+  final sub = gpos_table.LkSubTableType4(lookup)
     ..markCoverageTable = _StubCoverageTable({markGlyph})
     ..baseCoverageTable = _StubCoverageTable({baseGlyph})
-    ..markArrayTable = MarkArrayTable([
-      MarkRecord(markClass, markAnchor),
+    ..markArrayTable = gpos_table.MarkArrayTable([
+      gpos_table.MarkRecord(markClass, markAnchor),
     ])
-    ..baseArrayTable = BaseArrayTable([
-      BaseRecord([baseAnchor]),
+    ..baseArrayTable = gpos_table.BaseArrayTable([
+      gpos_table.BaseRecord([baseAnchor]),
     ]);
   lookup.subTables.add(sub);
 
@@ -603,7 +684,7 @@ GPOS _buildMarkToBaseGpos({
     ..scriptTag = _tag('DFLT');
   final scriptList = ScriptList()..['DFLT'] = script;
 
-  final gpos = GPOS()
+  final gpos = gpos_table.GPOS()
     ..majorVersion = 1
     ..minorVersion = 0
     ..featureList = featureList
@@ -612,23 +693,23 @@ GPOS _buildMarkToBaseGpos({
   return gpos;
 }
 
-GPOS _buildMarkToMarkGpos({
+gpos_table.GPOS _buildMarkToMarkGpos({
   required int mark2Glyph,
   required int mark1Glyph,
   required int mark1Class,
-  required AnchorPoint mark1Anchor,
-  required AnchorPoint mark2AnchorForClass,
+  required gpos_table.AnchorPoint mark1Anchor,
+  required gpos_table.AnchorPoint mark2AnchorForClass,
 }) {
-  final lookup = LookupTable(6, 0, 0);
-  final sub = LkSubTableType6(
+  final lookup = gpos_table.LookupTable(6, 0, 0);
+  final sub = gpos_table.LkSubTableType6(
     lookup,
     _StubCoverageTable({mark1Glyph}),
     _StubCoverageTable({mark2Glyph}),
-    MarkArrayTable([
-      MarkRecord(mark1Class, mark1Anchor),
+    gpos_table.MarkArrayTable([
+      gpos_table.MarkRecord(mark1Class, mark1Anchor),
     ]),
-    Mark2ArrayTable([
-      Mark2Record([
+    gpos_table.Mark2ArrayTable([
+      gpos_table.Mark2Record([
         null,
         mark2AnchorForClass,
       ]),
@@ -650,7 +731,7 @@ GPOS _buildMarkToMarkGpos({
     ..scriptTag = _tag('DFLT');
   final scriptList = ScriptList()..['DFLT'] = script;
 
-  final gpos = GPOS()
+  final gpos = gpos_table.GPOS()
     ..majorVersion = 1
     ..minorVersion = 0
     ..featureList = featureList
@@ -664,7 +745,8 @@ Typeface _makeTypeface({
   required List<int> advances,
   required Map<int, int> cmap,
   GDEF? gdef,
-  GPOS? gpos,
+  gpos_table.GPOS? gpos,
+  gsub_table.GSUB? gsub,
 }) {
   final nameEntry = NameEntry();
   nameEntry.fontName = 'Test Mark Font';
@@ -693,5 +775,108 @@ Typeface _makeTypeface({
     cmapTable: cmapTable,
     gdefTable: gdef,
     gposTable: gpos,
+    gsubTable: gsub,
   );
+}
+
+gsub_table.GSUB _buildLigatureGsub({
+  required int firstGlyph,
+  required List<int> otherComponents,
+  required int ligatureGlyph,
+}) {
+  final lookup = gsub_table.LookupTable(4, 0, 0);
+  
+  final ligTable = gsub_table.LigatureTable()
+    ..glyphId = ligatureGlyph
+    ..componentGlyphs = otherComponents;
+    
+  final ligSetTable = gsub_table.LigatureSetTable()
+    ..ligatures = [ligTable];
+
+  final sub = gsub_table.LkSubTableT4()
+    ..coverageTable = _StubCoverageTable({firstGlyph})
+    ..ligatureSetTables = [ligSetTable];
+  
+  lookup.subTables.add(sub);
+
+  final feature = FeatureTable()
+    ..featureTag = _tag('liga')
+    ..lookupListIndices = [0];
+  final featureList = FeatureList()..featureTables = [feature];
+
+  final lang = LangSysTable(0, 0)
+    ..featureIndexList = [0]
+    ..requireFeatureIndex = 0xFFFF;
+  final script = ScriptTable()
+    ..defaultLang = lang
+    ..langSysTables = []
+    ..scriptTag = _tag('DFLT');
+  final scriptList = ScriptList()..['DFLT'] = script;
+
+  final gsub = gsub_table.GSUB()
+    ..majorVersion = 1
+    ..minorVersion = 0
+    ..featureList = featureList
+    ..scriptList = scriptList;
+  gsub.lookupList.add(lookup);
+  return gsub;
+}
+
+gpos_table.GPOS _buildMarkToLigatureGpos({
+  required int ligatureGlyph,
+  required int markGlyph,
+  required int markClass,
+  required int componentIndex,
+  required gpos_table.AnchorPoint ligatureAnchor,
+  required gpos_table.AnchorPoint markAnchor,
+}) {
+  final lookup = gpos_table.LookupTable(5, 0, 0);
+  
+  // Ligature Array: one LigatureAttachTable per ligature glyph in coverage
+  // LigatureAttachTable: list of ComponentRecords (one per component)
+  // ComponentRecord: list of Anchors (one per mark class)
+  
+  // We need to pad the component record with nulls if markClass > 0, 
+  // but here we assume markClass=0 for simplicity.
+  final componentRecord = gpos_table.LigatureComponentRecord([ligatureAnchor]);
+  
+  // If we want to test specific component, we need enough components in the list.
+  // But LkSubTableType5 currently only takes the first one.
+  // Let's build it "correctly" anyway.
+  final components = List<gpos_table.LigatureComponentRecord>.filled(componentIndex + 1, componentRecord);
+  
+  final ligAttach = gpos_table.LigatureAttachTable(components);
+  
+  final sub = gpos_table.LkSubTableType5(
+    lookup,
+    _StubCoverageTable({markGlyph}),
+    _StubCoverageTable({ligatureGlyph}),
+    gpos_table.MarkArrayTable([
+      gpos_table.MarkRecord(markClass, markAnchor),
+    ]),
+    gpos_table.LigatureArrayTable([ligAttach]),
+  );
+  lookup.subTables.add(sub);
+
+  final feature = FeatureTable()
+    ..featureTag = _tag('mark')
+    ..lookupListIndices = [0];
+  final featureList = FeatureList()..featureTables = [feature];
+
+  final lang = LangSysTable(0, 0)
+    ..featureIndexList = [0]
+    ..requireFeatureIndex = 0xFFFF;
+  final script = ScriptTable()
+    ..defaultLang = lang
+    ..langSysTables = []
+    ..scriptTag = _tag('DFLT');
+  final scriptList = ScriptList()..['DFLT'] = script;
+
+  final gpos = gpos_table.GPOS()
+    ..majorVersion = 1
+    ..minorVersion = 0
+    ..featureList = featureList
+    ..scriptList = scriptList;
+  gpos.lookupList.add(lookup);
+  return gpos;
 }

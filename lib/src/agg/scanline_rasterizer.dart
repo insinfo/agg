@@ -1,13 +1,14 @@
 //==================================================rasterizer_scanline_aa
 // Polygon rasterizer that is used to render filled polygons with
 // high-quality Anti-Aliasing. See agg_rasterizer_scanline_aa in AGG.
+import 'package:agg/src/shared/ref_param.dart';
 import 'package:agg/src/agg/agg_basics.dart';
 import 'package:agg/src/agg/agg_gamma_functions.dart';
 import 'package:agg/src/agg/interfaces/iscanline.dart';
 import 'package:agg/src/agg/primitives/rectangle_double.dart';
 import 'package:agg/src/agg/rasterizer_cells_aa.dart';
 import 'package:agg/src/agg/vector_clipper.dart';
-import 'package:agg/src/agg/vertex_source/i_vertex_source.dart';
+import 'package:agg/src/agg/vertex_source/ivertex_source.dart';
 import 'package:agg/src/agg/vertex_source/path_commands.dart';
 
 abstract class IRasterizer {
@@ -110,11 +111,11 @@ class ScanlineRasterizer implements IRasterizer {
     }
   }
 
-  void _addVertex(FlagsAndCommand cmd, VertexOutput output) {
+  void _addVertex(FlagsAndCommand cmd, double x, double y) {
     if (ShapePath.isMoveTo(cmd)) {
-      move_to_d(output.x, output.y);
+      move_to_d(x, y);
     } else if (ShapePath.isVertex(cmd)) {
-      line_to_d(output.x, output.y);
+      line_to_d(x, y);
     } else if (ShapePath.isClose(cmd)) {
       close_polygon();
     }
@@ -122,16 +123,17 @@ class ScanlineRasterizer implements IRasterizer {
 
   @override
   void add_path(IVertexSource vs) {
-    final output = VertexOutput();
+    final x = RefParam(0.0);
+    final y = RefParam(0.0);
     vs.rewind();
     if (_outline.sorted()) {
       reset();
     }
 
     while (true) {
-      final cmd = vs.vertex(output);
+      final cmd = vs.vertex(x, y);
       if (ShapePath.isStop(cmd)) break;
-      _addVertex(cmd, output);
+      _addVertex(cmd, x.value, y.value);
     }
   }
 

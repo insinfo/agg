@@ -382,7 +382,16 @@ class Perspective implements ITransform {
   }
 
   @override
-  ({double x, double y}) transform(double px, double py) {
+  void transform(List<double> xy) {
+    double px = xy[0];
+    double py = xy[1];
+    final double denom = px * w0 + py * w1 + w2;
+    final double invDenom = 1.0 / denom;
+    xy[0] = (px * sx + py * shx + tx) * invDenom;
+    xy[1] = (px * shy + py * sy + ty) * invDenom;
+  }
+
+  ({double x, double y}) transformPoint(double px, double py) {
     final double denom = px * w0 + py * w1 + w2;
     final double invDenom = 1.0 / denom;
     return (
@@ -408,14 +417,14 @@ class Perspective implements ITransform {
   ({double x, double y}) inverseTransform(double px, double py) {
     final Perspective t = Perspective.copy(this);
     if (t.invert()) {
-      return t.transform(px, py);
+      return t.transformPoint(px, py);
     }
     return (x: 0.0, y: 0.0);
   }
 
   /// Mutable transform helper for existing ref-style call sites.
   void transformRef(RefParam<double> x, RefParam<double> y) {
-    final result = transform(x.value, y.value);
+    final result = transformPoint(x.value, y.value);
     x.value = result.x;
     y.value = result.y;
   }
@@ -469,8 +478,8 @@ class Perspective implements ITransform {
     double y1 = 0.0;
     double x2 = 1.0;
     double y2 = 0.0;
-    final p1 = transform(x1, y1);
-    final p2 = transform(x2, y2);
+    final p1 = transformPoint(x1, y1);
+    final p2 = transformPoint(x2, y2);
     x1 = p1.x;
     y1 = p1.y;
     x2 = p2.x;
@@ -487,8 +496,8 @@ class Perspective implements ITransform {
     double y1 = 0.0;
     double x2 = 1.0;
     double y2 = 1.0;
-    final p1 = t.transform(x1, y1);
-    final p2 = t.transform(x2, y2);
+    final p1 = t.transformPoint(x1, y1);
+    final p2 = t.transformPoint(x2, y2);
     x1 = p1.x;
     y1 = p1.y;
     x2 = p2.x;

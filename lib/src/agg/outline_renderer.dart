@@ -494,8 +494,8 @@ class LineInterpolatorAABase {
     _li = Dda2LineInterpolator.forward(
       0,
       lp.vertical
-          ? (lp.dy << LineAABasics.line_subpixel_shift)
-          : (lp.dx << LineAABasics.line_subpixel_shift),
+          ? (lp.dx << LineAABasics.line_subpixel_shift)
+          : (lp.dy << LineAABasics.line_subpixel_shift),
       lp.len,
     );
     _ren = ren;

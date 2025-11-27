@@ -43,6 +43,7 @@ class GPOS extends GlyphShapingTableEntry {
     int markFilteringSet,
   ) {
     final lookupTable = LookupTable(lookupType, lookupFlags, markFilteringSet);
+    lookupTable.owner = this;
     lookupTable.setMarkGlyphSets(_markGlyphSets);
     for (final subTableOffset in subTableOffsets) {
       final subTable =
@@ -75,6 +76,7 @@ class LookupTable {
   final int markFilteringSet;
   final List<LookupSubTable> subTables = [];
   MarkGlyphSetsTable? _markGlyphSets;
+  GPOS? owner;
   static const int _flagIgnoreBaseGlyphs = 0x0002;
   static const int _flagIgnoreLigatures = 0x0004;
   static const int _flagIgnoreMarks = 0x0008;
@@ -152,11 +154,9 @@ class LookupTable {
       case 6:
         return _readLookupType6(reader, subTableStartAt);
       case 7:
-        // Contextual Positioning (extended) (not yet implemented)
-        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 7');
+        return _readLookupType7(reader, subTableStartAt);
       case 8:
-        // Chaining Contextual Positioning (not yet implemented)
-        return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 8');
+        return _readLookupType8(reader, subTableStartAt);
       case 9:
         // Extension Positioning (not yet implemented)
         return UnimplementedLookupSubTable(this, 'GPOS Lookup Type 9');
@@ -370,6 +370,175 @@ class LookupTable {
       default:
         return UnimplementedLookupSubTable(
             this, 'GPOS Lookup Type 6 Format $format');
+    }
+  }
+
+  LookupSubTable _readLookupType7(
+    ByteOrderSwappingBinaryReader reader,
+    int subTableStartAt,
+  ) {
+    reader.seek(subTableStartAt);
+    final format = reader.readUInt16();
+    switch (format) {
+      case 1:
+        final coverageOffset = reader.readUInt16();
+        final ruleSetCount = reader.readUInt16();
+        final ruleSetOffsets = Utils.readUInt16Array(reader, ruleSetCount);
+
+        final coverage = CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
+        final ruleSets = List<RuleSet>.generate(ruleSetCount, (i) {
+            reader.seek(subTableStartAt + ruleSetOffsets[i]);
+            final ruleCount = reader.readUInt16();
+            final ruleOffsets = Utils.readUInt16Array(reader, ruleCount);
+            final rules = List<Rule>.generate(ruleCount, (j) {
+                reader.seek(subTableStartAt + ruleSetOffsets[i] + ruleOffsets[j]);
+                final glyphCount = reader.readUInt16();
+                final posCount = reader.readUInt16();
+                final input = Utils.readUInt16Array(reader, glyphCount - 1);
+                final records = List<PosLookupRecord>.generate(posCount, (k) => PosLookupRecord.createFrom(reader));
+                return Rule(input, records);
+            });
+            return RuleSet(rules);
+        });
+        return LkSubTableType7Fmt1(this, coverage, ruleSets);
+
+      case 2:
+        final coverageOffset = reader.readUInt16();
+        final classDefOffset = reader.readUInt16();
+        final classSetCount = reader.readUInt16();
+        final classSetOffsets = Utils.readUInt16Array(reader, classSetCount);
+
+        final coverage = CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
+        final classDef = ClassDefTable.createFrom(reader, subTableStartAt + classDefOffset);
+
+        final classRuleSets = List<ClassRuleSet>.generate(classSetCount, (i) {
+            if (classSetOffsets[i] == 0) return ClassRuleSet([]); // Empty set
+
+            reader.seek(subTableStartAt + classSetOffsets[i]);
+            final ruleCount = reader.readUInt16();
+            final ruleOffsets = Utils.readUInt16Array(reader, ruleCount);
+            final rules = List<ClassRule>.generate(ruleCount, (j) {
+                reader.seek(subTableStartAt + classSetOffsets[i] + ruleOffsets[j]);
+                final glyphCount = reader.readUInt16();
+                final posCount = reader.readUInt16();
+                final input = Utils.readUInt16Array(reader, glyphCount - 1);
+                final records = List<PosLookupRecord>.generate(posCount, (k) => PosLookupRecord.createFrom(reader));
+                return ClassRule(input, records);
+            });
+            return ClassRuleSet(rules);
+        });
+        return LkSubTableType7Fmt2(this, coverage, classDef, classRuleSets);
+
+      case 3:
+        final glyphCount = reader.readUInt16();
+        final posCount = reader.readUInt16();
+        final coverageOffsets = Utils.readUInt16Array(reader, glyphCount);
+        final records = List<PosLookupRecord>.generate(posCount, (k) => PosLookupRecord.createFrom(reader));
+
+        final coverages = List<CoverageTable>.generate(glyphCount, (i) {
+            return CoverageTable.createFrom(reader, subTableStartAt + coverageOffsets[i]);
+        });
+        return LkSubTableType7Fmt3(this, coverages, records);
+
+      default:
+        return UnimplementedLookupSubTable(
+            this, 'GPOS Lookup Type 7 Format $format');
+    }
+  }
+
+  LookupSubTable _readLookupType8(
+    ByteOrderSwappingBinaryReader reader,
+    int subTableStartAt,
+  ) {
+    reader.seek(subTableStartAt);
+    final format = reader.readUInt16();
+    switch (format) {
+      case 1:
+        final coverageOffset = reader.readUInt16();
+        final ruleSetCount = reader.readUInt16();
+        final ruleSetOffsets = Utils.readUInt16Array(reader, ruleSetCount);
+
+        final coverage = CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
+        final ruleSets = List<ChainRuleSet>.generate(ruleSetCount, (i) {
+            reader.seek(subTableStartAt + ruleSetOffsets[i]);
+            final ruleCount = reader.readUInt16();
+            final ruleOffsets = Utils.readUInt16Array(reader, ruleCount);
+            final rules = List<ChainRule>.generate(ruleCount, (j) {
+                reader.seek(subTableStartAt + ruleSetOffsets[i] + ruleOffsets[j]);
+                final backtrackCount = reader.readUInt16();
+                final backtrack = Utils.readUInt16Array(reader, backtrackCount);
+                final inputCount = reader.readUInt16();
+                final input = Utils.readUInt16Array(reader, inputCount - 1);
+                final lookaheadCount = reader.readUInt16();
+                final lookahead = Utils.readUInt16Array(reader, lookaheadCount);
+                final posCount = reader.readUInt16();
+                final records = List<PosLookupRecord>.generate(posCount, (k) => PosLookupRecord.createFrom(reader));
+                return ChainRule(backtrack, input, lookahead, records);
+            });
+            return ChainRuleSet(rules);
+        });
+        return LkSubTableType8Fmt1(this, coverage, ruleSets);
+
+      case 2:
+        final coverageOffset = reader.readUInt16();
+        final backtrackClassDefOffset = reader.readUInt16();
+        final inputClassDefOffset = reader.readUInt16();
+        final lookaheadClassDefOffset = reader.readUInt16();
+        final chainClassSetCount = reader.readUInt16();
+        final chainClassSetOffsets = Utils.readUInt16Array(reader, chainClassSetCount);
+
+        final coverage = CoverageTable.createFrom(reader, subTableStartAt + coverageOffset);
+        final backtrackClassDef = ClassDefTable.createFrom(reader, subTableStartAt + backtrackClassDefOffset);
+        final inputClassDef = ClassDefTable.createFrom(reader, subTableStartAt + inputClassDefOffset);
+        final lookaheadClassDef = ClassDefTable.createFrom(reader, subTableStartAt + lookaheadClassDefOffset);
+
+        final ruleSets = List<ChainClassRuleSet>.generate(chainClassSetCount, (i) {
+            if (chainClassSetOffsets[i] == 0) return ChainClassRuleSet([]);
+
+            reader.seek(subTableStartAt + chainClassSetOffsets[i]);
+            final ruleCount = reader.readUInt16();
+            final ruleOffsets = Utils.readUInt16Array(reader, ruleCount);
+            final rules = List<ChainClassRule>.generate(ruleCount, (j) {
+                reader.seek(subTableStartAt + chainClassSetOffsets[i] + ruleOffsets[j]);
+                final backtrackCount = reader.readUInt16();
+                final backtrack = Utils.readUInt16Array(reader, backtrackCount);
+                final inputCount = reader.readUInt16();
+                final input = Utils.readUInt16Array(reader, inputCount - 1);
+                final lookaheadCount = reader.readUInt16();
+                final lookahead = Utils.readUInt16Array(reader, lookaheadCount);
+                final posCount = reader.readUInt16();
+                final records = List<PosLookupRecord>.generate(posCount, (k) => PosLookupRecord.createFrom(reader));
+                return ChainClassRule(backtrack, input, lookahead, records);
+            });
+            return ChainClassRuleSet(rules);
+        });
+        return LkSubTableType8Fmt2(this, coverage, backtrackClassDef, inputClassDef, lookaheadClassDef, ruleSets);
+
+      case 3:
+        final backtrackCount = reader.readUInt16();
+        final backtrackOffsets = Utils.readUInt16Array(reader, backtrackCount);
+        final inputCount = reader.readUInt16();
+        final inputOffsets = Utils.readUInt16Array(reader, inputCount);
+        final lookaheadCount = reader.readUInt16();
+        final lookaheadOffsets = Utils.readUInt16Array(reader, lookaheadCount);
+        final posCount = reader.readUInt16();
+        final records = List<PosLookupRecord>.generate(posCount, (k) => PosLookupRecord.createFrom(reader));
+
+        final backtrackCoverages = List<CoverageTable>.generate(backtrackCount, (i) {
+            return CoverageTable.createFrom(reader, subTableStartAt + backtrackOffsets[i]);
+        });
+        final inputCoverages = List<CoverageTable>.generate(inputCount, (i) {
+            return CoverageTable.createFrom(reader, subTableStartAt + inputOffsets[i]);
+        });
+        final lookaheadCoverages = List<CoverageTable>.generate(lookaheadCount, (i) {
+            return CoverageTable.createFrom(reader, subTableStartAt + lookaheadOffsets[i]);
+        });
+
+        return LkSubTableType8Fmt3(this, backtrackCoverages, inputCoverages, lookaheadCoverages, records);
+
+      default:
+        return UnimplementedLookupSubTable(
+            this, 'GPOS Lookup Type 8 Format $format');
     }
   }
 }
@@ -883,7 +1052,8 @@ class LkSubTableType5 extends LookupSubTable {
       final ligAnchor = component?.getAnchor(markClass);
       if (markAnchor == null || ligAnchor == null) continue;
 
-      final offsetX = ligAnchor.xcoord - markAnchor.xcoord;
+      final prevAdvance = glyphPositions.getGlyphAdvanceWidth(prevIndex);
+      final offsetX = -prevAdvance + ligAnchor.xcoord - markAnchor.xcoord;
       final offsetY = ligAnchor.ycoord - markAnchor.ycoord;
       glyphPositions.appendGlyphOffset(i, offsetX, offsetY);
     }
@@ -1037,5 +1207,165 @@ class Mark2Record {
   AnchorPoint? getAnchor(int classId) {
     if (classId < 0 || classId >= anchors.length) return null;
     return anchors[classId];
+  }
+}
+
+class PosLookupRecord {
+  final int sequenceIndex;
+  final int lookupListIndex;
+
+  PosLookupRecord(this.sequenceIndex, this.lookupListIndex);
+
+  static PosLookupRecord createFrom(ByteOrderSwappingBinaryReader reader) {
+    return PosLookupRecord(reader.readUInt16(), reader.readUInt16());
+  }
+}
+
+// --- Type 7: Contextual Positioning ---
+
+class LkSubTableType7Fmt1 extends LookupSubTable {
+  final CoverageTable coverage;
+  final List<RuleSet> ruleSets;
+
+  LkSubTableType7Fmt1(LookupTable owner, this.coverage, this.ruleSets)
+      : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    // TODO: Implement Contextual Positioning Format 1
+  }
+}
+
+class RuleSet {
+  final List<Rule> rules;
+  RuleSet(this.rules);
+}
+
+class Rule {
+  final List<int> input; // Glyphs
+  final List<PosLookupRecord> lookupRecords;
+  Rule(this.input, this.lookupRecords);
+}
+
+class LkSubTableType7Fmt2 extends LookupSubTable {
+  final CoverageTable coverage;
+  final ClassDefTable classDef;
+  final List<ClassRuleSet> classRuleSets;
+
+  LkSubTableType7Fmt2(
+      LookupTable owner, this.coverage, this.classDef, this.classRuleSets)
+      : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    // TODO: Implement Contextual Positioning Format 2
+  }
+}
+
+class ClassRuleSet {
+  final List<ClassRule> rules;
+  ClassRuleSet(this.rules);
+}
+
+class ClassRule {
+  final List<int> input; // Classes
+  final List<PosLookupRecord> lookupRecords;
+  ClassRule(this.input, this.lookupRecords);
+}
+
+class LkSubTableType7Fmt3 extends LookupSubTable {
+  final List<CoverageTable> coverages;
+  final List<PosLookupRecord> lookupRecords;
+
+  LkSubTableType7Fmt3(LookupTable owner, this.coverages, this.lookupRecords)
+      : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    // TODO: Implement Contextual Positioning Format 3
+  }
+}
+
+// --- Type 8: Chaining Contextual Positioning ---
+
+class LkSubTableType8Fmt1 extends LookupSubTable {
+  final CoverageTable coverage;
+  final List<ChainRuleSet> ruleSets;
+
+  LkSubTableType8Fmt1(LookupTable owner, this.coverage, this.ruleSets)
+      : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    // TODO: Implement Chaining Contextual Positioning Format 1
+  }
+}
+
+class ChainRuleSet {
+  final List<ChainRule> rules;
+  ChainRuleSet(this.rules);
+}
+
+class ChainRule {
+  final List<int> backtrack;
+  final List<int> input;
+  final List<int> lookahead;
+  final List<PosLookupRecord> lookupRecords;
+  ChainRule(this.backtrack, this.input, this.lookahead, this.lookupRecords);
+}
+
+class LkSubTableType8Fmt2 extends LookupSubTable {
+  final CoverageTable coverage;
+  final ClassDefTable backtrackClassDef;
+  final ClassDefTable inputClassDef;
+  final ClassDefTable lookaheadClassDef;
+  final List<ChainClassRuleSet> ruleSets;
+
+  LkSubTableType8Fmt2(
+    LookupTable owner,
+    this.coverage,
+    this.backtrackClassDef,
+    this.inputClassDef,
+    this.lookaheadClassDef,
+    this.ruleSets,
+  ) : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    // TODO: Implement Chaining Contextual Positioning Format 2
+  }
+}
+
+class ChainClassRuleSet {
+  final List<ChainClassRule> rules;
+  ChainClassRuleSet(this.rules);
+}
+
+class ChainClassRule {
+  final List<int> backtrack;
+  final List<int> input;
+  final List<int> lookahead;
+  final List<PosLookupRecord> lookupRecords;
+  ChainClassRule(
+      this.backtrack, this.input, this.lookahead, this.lookupRecords);
+}
+
+class LkSubTableType8Fmt3 extends LookupSubTable {
+  final List<CoverageTable> backtrackCoverages;
+  final List<CoverageTable> inputCoverages;
+  final List<CoverageTable> lookaheadCoverages;
+  final List<PosLookupRecord> lookupRecords;
+
+  LkSubTableType8Fmt3(
+    LookupTable owner,
+    this.backtrackCoverages,
+    this.inputCoverages,
+    this.lookaheadCoverages,
+    this.lookupRecords,
+  ) : super(owner);
+
+  @override
+  void doGlyphPosition(IGlyphPositions glyphPositions, int startAt, int len) {
+    // TODO: Implement Chaining Contextual Positioning Format 3
   }
 }

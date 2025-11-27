@@ -178,7 +178,9 @@ void main() {
       );
 
       lookup.doGlyphPosition(positions, 0, positions.count);
-      expect(positions.offsets, contains((3, 3)));
+      // Offset includes moving back by the advance of the base glyph (500)
+      // 8 (lig anchor) - 5 (mark anchor) - 500 (advance) = -497
+      expect(positions.offsets, contains((-497, 3)));
     });
   });
 }

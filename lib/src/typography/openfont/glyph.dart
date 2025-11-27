@@ -75,8 +75,8 @@ class Glyph {
   // TrueType glyph data
   final List<GlyphPointF>? glyphPoints;
   final List<int>? contourEndPoints;
-  final Bounds bounds;
-  final List<int>? glyphInstructions;
+  Bounds bounds;
+  List<int>? glyphInstructions;
   final int glyphIndex;
 
   // Metrics
@@ -86,6 +86,14 @@ class Glyph {
   GlyphClassKind glyphClass = GlyphClassKind.zero;
   int markClassDef = 0;
 
+  // CFF data
+  Object? cffGlyphData;
+
+  // Bitmap data
+  final int? bitmapOffset;
+  final int? bitmapLength;
+  final int? bitmapFormat;
+
   // Private constructor for TTF glyphs
   Glyph._ttf({
     required this.glyphPoints,
@@ -93,6 +101,10 @@ class Glyph {
     required this.bounds,
     required this.glyphInstructions,
     required this.glyphIndex,
+    this.cffGlyphData,
+    this.bitmapOffset,
+    this.bitmapLength,
+    this.bitmapFormat,
   });
 
   /// Creates a TrueType glyph
@@ -109,6 +121,40 @@ class Glyph {
       bounds: bounds,
       glyphInstructions: glyphInstructions,
       glyphIndex: glyphIndex,
+    );
+  }
+
+  /// Creates a CFF glyph
+  factory Glyph.cff({
+    required int glyphIndex,
+    required Object cffGlyphData,
+  }) {
+    return Glyph._ttf(
+      glyphPoints: null,
+      contourEndPoints: null,
+      bounds: Bounds.zero,
+      glyphInstructions: null,
+      glyphIndex: glyphIndex,
+      cffGlyphData: cffGlyphData,
+    );
+  }
+
+  /// Creates a Bitmap glyph
+  factory Glyph.bitmap({
+    required int glyphIndex,
+    required int bitmapOffset,
+    required int bitmapLength,
+    required int bitmapFormat,
+  }) {
+    return Glyph._ttf(
+      glyphPoints: null,
+      contourEndPoints: null,
+      bounds: Bounds.zero,
+      glyphInstructions: null,
+      glyphIndex: glyphIndex,
+      bitmapOffset: bitmapOffset,
+      bitmapLength: bitmapLength,
+      bitmapFormat: bitmapFormat,
     );
   }
 

@@ -1,13 +1,14 @@
 import 'dart:typed_data';
 
 import 'package:agg/src/agg/graphics2D.dart';
-import 'package:agg/src/agg/image/iimage_float.dart';
+import 'package:agg/src/agg/image/iimage.dart';
 import 'package:agg/src/agg/image/raster_buffer_accessors.dart';
 import 'package:agg/src/agg/primitives/color_f.dart';
 import 'package:agg/src/agg/primitives/rectangle_int.dart';
 import 'package:agg/src/vector_math/vector2.dart';
 import 'package:test/test.dart';
 import 'package:agg/src/shared/ref_param.dart';
+import 'package:agg/src/agg/image/rgba.dart';
 
 class _FloatImage implements IImageFloat {
   @override
@@ -48,6 +49,66 @@ class _FloatImage implements IImageFloat {
 
   @override
   void markImageChanged() {}
+
+  @override
+  int strideInFloats() => width * 4;
+
+  @override
+  int strideInFloatsAbs() => strideInFloats().abs();
+
+  @override
+  IRecieveBlenderFloat getBlender() => throw UnimplementedError();
+
+  @override
+  void setRecieveBlender(IRecieveBlenderFloat value) => throw UnimplementedError();
+
+  @override
+  ColorF getPixel(int x, int y) => throw UnimplementedError();
+
+  @override
+  void copy_pixel(int x, int y, Float32List c, int floatOffset) => throw UnimplementedError();
+
+  @override
+  void CopyFrom(IImageFloat sourceImage) => throw UnimplementedError();
+
+  @override
+  void CopyFrom2(IImageFloat sourceImage, RectangleInt sourceImageRect, int destXOffset, int destYOffset) => throw UnimplementedError();
+
+  @override
+  void SetPixel(int x, int y, ColorF color) => throw UnimplementedError();
+
+  @override
+  void BlendPixel(int x, int y, ColorF sourceColor, int cover) => throw UnimplementedError();
+
+  @override
+  void copy_hline(int x, int y, int len, ColorF sourceColor) => throw UnimplementedError();
+
+  @override
+  void copy_vline(int x, int y, int len, ColorF sourceColor) => throw UnimplementedError();
+
+  @override
+  void blend_hline(int x, int y, int x2, ColorF sourceColor, int cover) => throw UnimplementedError();
+
+  @override
+  void blend_vline(int x, int y1, int y2, ColorF sourceColor, int cover) => throw UnimplementedError();
+
+  @override
+  void copy_color_hspan(int x, int y, int len, List<ColorF> colors, int colorIndex) => throw UnimplementedError();
+
+  @override
+  void copy_color_vspan(int x, int y, int len, List<ColorF> colors, int colorIndex) => throw UnimplementedError();
+
+  @override
+  void blend_solid_hspan(int x, int y, int len, ColorF sourceColor, Uint8List covers, int coversIndex) => throw UnimplementedError();
+
+  @override
+  void blend_solid_vspan(int x, int y, int len, ColorF sourceColor, Uint8List covers, int coversIndex) => throw UnimplementedError();
+
+  @override
+  void blend_color_hspan(int x, int y, int len, List<ColorF> colors, int colorsIndex, Uint8List covers, int coversIndex, bool firstCoverForAll) => throw UnimplementedError();
+
+  @override
+  void blend_color_vspan(int x, int y, int len, List<ColorF> colors, int colorsIndex, Uint8List covers, int coversIndex, bool firstCoverForAll) => throw UnimplementedError();
 }
 
 void main() {

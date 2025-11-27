@@ -58,7 +58,8 @@ class RasterizerOutlineAA {
       final dx = _srcVertices[1].x - _srcVertices[0].x;
       final dy = _srcVertices[1].y - _srcVertices[0].y;
       final len = Agg_basics.uround(math.sqrt((dx * dx + dy * dy).toDouble()));
-      _renderer.line0(LineParameters(_srcVertices[0].x, _srcVertices[0].y, _srcVertices[1].x, _srcVertices[1].y, len));
+      _renderer.line0(LineParameters(_srcVertices[0].x, _srcVertices[0].y,
+          _srcVertices[1].x, _srcVertices[1].y, len));
       return;
     }
 
@@ -70,15 +71,27 @@ class RasterizerOutlineAA {
     dv.y2 = _srcVertices[1].y;
     final dx = dv.x2 - dv.x1;
     final dy = dv.y2 - dv.y1;
-    final int segLen = Agg_basics.uround(math.sqrt((dx * dx + dy * dy).toDouble()));
+    final int segLen =
+        Agg_basics.uround(math.sqrt((dx * dx + dy * dy).toDouble()));
     dv.lcurr = dv.lnext = segLen;
     dv.curr = LineParameters(dv.x1, dv.y1, dv.x2, dv.y2, dv.lcurr);
 
     int flags = 3;
-    if (_lineJoin == OutlineJoin.miter || _lineJoin == OutlineJoin.miterAccurate) {
+    if (_lineJoin == OutlineJoin.miter ||
+        _lineJoin == OutlineJoin.miterAccurate) {
       if (_srcVertices.length > 2) {
         dv.xb1 = dv.curr.x1 + (dv.curr.y2 - dv.curr.y1);
         dv.yb1 = dv.curr.y1 - (dv.curr.x2 - dv.curr.x1);
+        // Initialize next segment for proper join calculations
+        final nextIdx = 2;
+        if (nextIdx < _srcVertices.length) {
+          final dx2 = _srcVertices[nextIdx].x - dv.x2;
+          final dy2 = _srcVertices[nextIdx].y - dv.y2;
+          final nextSegLen =
+              Agg_basics.uround(math.sqrt((dx2 * dx2 + dy2 * dy2).toDouble()));
+          dv.next = LineParameters(dv.x2, dv.y2, _srcVertices[nextIdx].x,
+              _srcVertices[nextIdx].y, nextSegLen);
+        }
       }
     }
 
@@ -142,31 +155,32 @@ class RasterizerOutlineAA {
           dv.flags = 3;
           break;
         case OutlineJoin.miter:
-      dv.flags >>= 1;
-      dv.flags |=
-          (dv.curr.diagonalQuadrant() == dv.next.diagonalQuadrant() ? 1 : 0);
-      if ((dv.flags & 2) == 0) {
-        final rx = RefParam<int>(0);
-        final ry = RefParam<int>(0);
-        LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
-        dv.xb2 = rx.value;
-        dv.yb2 = ry.value;
-      }
-      break;
+          dv.flags >>= 1;
+          dv.flags |= (dv.curr.diagonalQuadrant() == dv.next.diagonalQuadrant()
+              ? 1
+              : 0);
+          if ((dv.flags & 2) == 0) {
+            final rx = RefParam<int>(0);
+            final ry = RefParam<int>(0);
+            LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
+            dv.xb2 = rx.value;
+            dv.yb2 = ry.value;
+          }
+          break;
         case OutlineJoin.round:
           dv.flags = 0;
           break;
         case OutlineJoin.miterAccurate:
-      dv.flags >>= 1;
-      dv.flags |= _accurateJoin(dv.curr, dv.next) ? 1 : 0;
-      if ((dv.flags & 2) == 0) {
-        final rx = RefParam<int>(0);
-        final ry = RefParam<int>(0);
-        LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
-        dv.xb2 = rx.value;
-        dv.yb2 = ry.value;
-      }
-      break;
+          dv.flags >>= 1;
+          dv.flags |= _accurateJoin(dv.curr, dv.next) ? 1 : 0;
+          if ((dv.flags & 2) == 0) {
+            final rx = RefParam<int>(0);
+            final ry = RefParam<int>(0);
+            LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
+            dv.xb2 = rx.value;
+            dv.yb2 = ry.value;
+          }
+          break;
       }
     }
   }
@@ -176,8 +190,8 @@ class RasterizerOutlineAA {
         (lp1.y2 - lp1.y1).toDouble() * (lp2.x2 - lp2.x1);
     if (d == 0) return false;
     return ((lp1.x2 - lp1.x1) * (lp2.y2 - lp1.y1) -
-            (lp1.y2 - lp1.y1) * (lp2.x2 - lp1.x1)) /
-        d >
+                (lp1.y2 - lp1.y1) * (lp2.x2 - lp1.x1)) /
+            d >
         0;
   }
 }

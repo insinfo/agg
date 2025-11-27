@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 import 'package:agg/src/agg/vertex_source/vertex_source.dart';
+import 'package:agg/src/agg/primitives/point2d.dart';
 
 void main() {
   group('VertexStorage', () {
@@ -56,10 +57,12 @@ void main() {
     test('should generate vertices', () {
       final arc = Arc(0, 0, 10, 10, 0, 1.5708); // 90 degrees
       final vertices = arc.vertices().toList();
+      print("Arc vertices count: ${vertices.length}");
 
       expect(vertices.isNotEmpty, isTrue);
       expect(vertices.first.isMoveTo, isTrue);
-      expect(vertices.skip(1).every((v) => v.isLineTo), isTrue);
+      // Filter out Stop command at the end
+      expect(vertices.where((v) => !v.isStop).skip(1).every((v) => v.isLineTo), isTrue);
     });
   });
 
@@ -73,7 +76,7 @@ void main() {
     });
 
     test('should create circle', () {
-      final circle = Ellipse.circle(100, 100, 50);
+      final circle = Ellipse.fromCircle(Point2D(100, 100), 50);
       expect(circle.radiusX, equals(50));
       expect(circle.radiusY, equals(50));
     });
@@ -81,11 +84,12 @@ void main() {
     test('should generate closed path', () {
       final ellipse = Ellipse(0, 0, 10, 10);
       final vertices = ellipse.vertices().toList();
+      final validVertices = vertices.where((v) => !v.isStop).toList();
 
-      expect(vertices.isNotEmpty, isTrue);
-      expect(vertices.first.isMoveTo, isTrue);
-      expect(vertices.last.isEndPoly, isTrue);
-      expect(vertices.last.isClose, isTrue);
+      expect(validVertices.isNotEmpty, isTrue);
+      expect(validVertices.first.isMoveTo, isTrue);
+      expect(validVertices.last.isEndPoly, isTrue);
+      expect(validVertices.last.isClose, isTrue);
     });
   });
 

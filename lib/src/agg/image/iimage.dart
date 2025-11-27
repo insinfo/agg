@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:agg/src/agg/image/rgba.dart';
 import 'package:agg/src/agg/primitives/color.dart';
+import 'package:agg/src/agg/primitives/color_f.dart';
 import 'package:agg/src/agg/primitives/rectangle_int.dart';
 import 'package:agg/src/vector_math/vector2.dart';
 
@@ -77,5 +78,55 @@ abstract class IImageByte extends IImage {
       bool firstCoverForAll);
 
   void blend_color_vspan(int x, int y, int len, List<Color> colors, int colorsIndex, Uint8List covers, int coversIndex,
+      bool firstCoverForAll);
+}
+
+abstract class IImageFloat extends IImage {
+  int strideInFloats();
+
+  int strideInFloatsAbs();
+
+  IRecieveBlenderFloat getBlender();
+
+  void setRecieveBlender(IRecieveBlenderFloat value);
+
+  int getFloatsBetweenPixelsInclusive();
+
+  Float32List getBuffer();
+
+  ColorF getPixel(int x, int y);
+
+  void copy_pixel(int x, int y, Float32List c, int floatOffset);
+
+  void CopyFrom(IImageFloat sourceImage);
+
+  void CopyFrom2(IImageFloat sourceImage, RectangleInt sourceImageRect, int destXOffset, int destYOffset);
+
+  void SetPixel(int x, int y, ColorF color);
+
+  void BlendPixel(int x, int y, ColorF sourceColor, int cover);
+
+  // line stuff
+  void copy_hline(int x, int y, int len, ColorF sourceColor);
+
+  void copy_vline(int x, int y, int len, ColorF sourceColor);
+
+  void blend_hline(int x, int y, int x2, ColorF sourceColor, int cover);
+
+  void blend_vline(int x, int y1, int y2, ColorF sourceColor, int cover);
+
+  // color stuff
+  void copy_color_hspan(int x, int y, int len, List<ColorF> colors, int colorIndex);
+
+  void copy_color_vspan(int x, int y, int len, List<ColorF> colors, int colorIndex);
+
+  void blend_solid_hspan(int x, int y, int len, ColorF sourceColor, Uint8List covers, int coversIndex);
+
+  void blend_solid_vspan(int x, int y, int len, ColorF sourceColor, Uint8List covers, int coversIndex);
+
+  void blend_color_hspan(int x, int y, int len, List<ColorF> colors, int colorsIndex, Uint8List covers, int coversIndex,
+      bool firstCoverForAll);
+
+  void blend_color_vspan(int x, int y, int len, List<ColorF> colors, int colorsIndex, Uint8List covers, int coversIndex,
       bool firstCoverForAll);
 }
