@@ -62,4 +62,8 @@ class LineAAVertexSequence {
   LineAAVertex prev(int idx) => this[(idx + _items.length - 1) % _items.length];
   LineAAVertex curr(int idx) => this[idx];
   LineAAVertex next(int idx) => this[(idx + 1) % _items.length];
+
+  void clear() {
+    _items.clear();
+  }
 }

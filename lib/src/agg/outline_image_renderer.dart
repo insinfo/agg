@@ -24,6 +24,11 @@ class ImageLineRenderer extends LineRenderer {
   }) : color = color ?? Color(0, 0, 0, 255);
 
   @override
+  void semidot(CompareFunction cmp, int xc1, int yc1, int xc2, int yc2) {
+    // Not implemented
+  }
+
+  @override
   void pie(int x1, int y1, int x2, int y2, int x3, int y3) {
     // Not needed for simple rendering; noop.
   }
@@ -201,6 +206,11 @@ class ProfileLineRenderer extends LineRenderer {
 
   @override
   void line3(LineParameters lp, int xb1, int yb1, int xb2, int yb2) => line0(lp);
+
+  @override
+  void semidot(CompareFunction cmp, int xc1, int yc1, int xc2, int yc2) {
+    // Not implemented
+  }
 
   @override
   void pie(int x1, int y1, int x2, int y2, int x3, int y3) {

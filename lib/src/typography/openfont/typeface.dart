@@ -2,6 +2,8 @@
 // Apache2, 2014-2016, Samuel Carlsson, WinterDev
 // Ported to Dart by insinfo, 2025
 
+import 'dart:typed_data';
+
 import 'glyph.dart';
 import 'tables/cmap.dart';
 import 'tables/gpos.dart';
@@ -35,6 +37,9 @@ import 'tables/vmtx.dart';
 import 'tables/gasp.dart';
 import 'tables/kern.dart';
 import 'tables/post.dart';
+import 'tables/fpgm.dart';
+import 'tables/prep.dart';
+import 'tables/cvt.dart';
 
 /// Represents a complete typeface with all its tables and glyphs
 class Typeface {
@@ -75,6 +80,9 @@ class Typeface {
   Gasp? gaspTable;
   Kern? kernTable;
   PostTable? postTable;
+  FpgmTable? fpgmTable;
+  PrepTable? prepTable;
+  CvtTable? cvtTable;
 
   Typeface({
     required NameEntry nameEntry,
@@ -112,6 +120,9 @@ class Typeface {
     this.gaspTable,
     this.kernTable,
     this.postTable,
+    this.fpgmTable,
+    this.prepTable,
+    this.cvtTable,
   })  : _nameEntry = nameEntry,
         _bounds = bounds,
         _unitsPerEm = unitsPerEm,
@@ -155,6 +166,9 @@ class Typeface {
     Gasp? gaspTable,
     Kern? kernTable,
     PostTable? postTable,
+    FpgmTable? fpgmTable,
+    PrepTable? prepTable,
+    CvtTable? cvtTable,
   }) {
     final typeface = Typeface(
       nameEntry: nameEntry,
@@ -192,6 +206,9 @@ class Typeface {
       gaspTable: gaspTable,
       kernTable: kernTable,
       postTable: postTable,
+      fpgmTable: fpgmTable,
+      prepTable: prepTable,
+      cvtTable: cvtTable,
     );
     gdefTable?.fillGlyphData(typeface.glyphs);
 
@@ -305,6 +322,10 @@ class Typeface {
   int getHFrontSideBearingFromGlyphIndex(int glyphIndex) {
     return _horizontalMetrics.getLeftSideBearing(glyphIndex);
   }
+
+  Uint8List? get fpgmProgramBuffer => fpgmTable?.programBuffer;
+  Uint8List? get prepProgramBuffer => prepTable?.programBuffer;
+  Int16List? get controlValues => cvtTable?.controlValues;
 
   // Scaling utilities
 

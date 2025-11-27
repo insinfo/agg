@@ -90,12 +90,8 @@ class LineAABasics {
     final double dx = tx - l2.x1;
     final double dy = ty - l2.y1;
     if (math.sqrt(dx * dx + dy * dy).toInt() < line_subpixel_scale) {
-      x.value = Agg_basics.iround(
-        (l2.x1 + l2.x1 + (l2.y1 - l1.y1) + (l2.y2 - l2.y1)) / 2.0,
-      );
-      y.value = Agg_basics.iround(
-        (l2.y1 + l2.y1 - (l2.x1 - l1.x1) - (l2.x2 - l2.x1)) / 2.0,
-      );
+      x.value = (l2.x1 + l2.x1 + (l2.y1 - l1.y1) + (l2.y2 - l2.y1)) >> 1;
+      y.value = (l2.y1 + l2.y1 - (l2.x1 - l1.x1) - (l2.x2 - l2.x1)) >> 1;
       return;
     }
 
@@ -104,32 +100,32 @@ class LineAABasics {
   }
 
   static void fix_degenerate_bisectrix_start(LineParameters lp, RefParam<int> x, RefParam<int> y) {
-    final int d = Agg_basics.iround(
-      ((x.value - lp.x1) * (lp.y2 - lp.y1) -
-              (y.value - lp.y1) * (lp.x2 - lp.x1))
-          .toDouble(),
-    );
-    if (d < 0) {
+    final double dx = (lp.x2 - lp.x1).toDouble();
+    final double dy = (lp.y2 - lp.y1).toDouble();
+    final double dx0 = (x.value - lp.x2).toDouble();
+    final double dy0 = (y.value - lp.y2).toDouble();
+    final double len = lp.len.toDouble();
+    final int d = ((dx0 * dy - dy0 * dx) / len).round().toInt();
+    
+    if (d < line_subpixel_scale ~/ 2) {
       x.value = lp.x1 + (lp.y2 - lp.y1);
       y.value = lp.y1 - (lp.x2 - lp.x1);
-    } else {
-      x.value = lp.x1 - (lp.y2 - lp.y1);
-      y.value = lp.y1 + (lp.x2 - lp.x1);
     }
+    // else: keep original x, y values
   }
 
   static void fix_degenerate_bisectrix_end(LineParameters lp, RefParam<int> x, RefParam<int> y) {
-    final int d = Agg_basics.iround(
-      ((x.value - lp.x2) * (lp.y2 - lp.y1) -
-              (y.value - lp.y2) * (lp.x2 - lp.x1))
-          .toDouble(),
-    );
-    if (d < 0) {
+    final double dx = (lp.x2 - lp.x1).toDouble();
+    final double dy = (lp.y2 - lp.y1).toDouble();
+    final double dx0 = (x.value - lp.x2).toDouble();
+    final double dy0 = (y.value - lp.y2).toDouble();
+    final double len = lp.len.toDouble();
+    final int d = ((dx0 * dy - dy0 * dx) / len).round().toInt();
+    
+    if (d < line_subpixel_scale ~/ 2) {
       x.value = lp.x2 + (lp.y2 - lp.y1);
       y.value = lp.y2 - (lp.x2 - lp.x1);
-    } else {
-      x.value = lp.x2 - (lp.y2 - lp.y1);
-      y.value = lp.y2 + (lp.x2 - lp.x1);
     }
+    // else: keep original x, y values
   }
 }

@@ -5,4 +5,5 @@ pubspec.lock
 
 agg-2.6-cpp/
 agg-sharp/
+agg-rust/
 .agent/

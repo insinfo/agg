@@ -3,7 +3,7 @@
 ## Status Geral
 **Projeto:** Porte da biblioteca Typography (agg-sharp) de C# para Dart  
 **Data de Início:** 07 de Novembro de 2025  
-**Status Atual:** Em Progresso - Fase 3 (AGG Core) - 85%
+**Status Atual:** Em Progresso - Fase 3 (AGG Core & Interpreter) - 90%
 continue portando o C:\MyDartProjects\agg\agg-sharp\agg para dart e validando rasterização
 e C:\MyDartProjects\agg\agg-sharp\Typography 
 
@@ -341,7 +341,11 @@ use dart analyze para verficar se o codigo está correto
 - [x] `PostScript` (post) - **Concluído**
 
 #### TrueType Interpreter
-- [ ] Hinting engine (bytecode interpreter) - *Baixa prioridade por enquanto*
+- [x] Hinting engine (bytecode interpreter) - **Implementado (Core)**
+  - ✅ Stack, GraphicsState, Zone, InstructionStream
+  - ✅ Opcodes: Arithmetic, Logical, Flow Control, Function Defs
+  - ✅ Opcodes: Move (MIAP, MDAP, etc), Shift (SHP, SHC, etc), Delta, Interpolate (IUP)
+  - ⚠️ `MPS` opcode precisa de implementação correta (tamanho em pontos)
 
 #### WebFont
 - [ ] WOFF Reader
@@ -355,6 +359,14 @@ use dart analyze para verficar se o codigo está correto
 - [ ] API Pública (Barrel File) - `lib/typography.dart`
 - [ ] Documentação completa
 - [ ] Testes de integração
+  - ✅ `lion_test.dart`: Renderização de caminhos complexos e transformações (baseado em `lion.rs`)
+  - ✅ `rounded_rect_test.dart`: Renderização de primitivas e stroking (baseado em `rounded_rect.rs`)
+  - ✅ `outline_aa_test.dart`: Renderização de contornos AA (baseado em `outline_aa.rs`) - **Corrigido bug em LineProfileAA para linhas largas**
+  - ✅ `image_buffer_test.dart`: Teste básico de buffer de imagem (baseado em `t01_rendering_buffer.rs`)
+  - ✅ `line_join_test.dart`: Teste de junções de linha (baseado em `t21_line_join.rs`)
+  - ✅ `pixel_formats_test.dart`: Teste de formatos de pixel e manipulação direta (baseado em `t02_pixel_formats.rs`)
+  - ✅ `solar_spectrum_test.dart`: Teste de espectro solar e conversão de comprimento de onda (baseado em `t03_solar_spectrum.rs`)
+  - ✅ Migração de assets para `resources/` para remover dependências externas.
 
 ---
 
@@ -493,3 +505,31 @@ Nenhum no momento.
 
 ### Próximo Marco:
 **API Pública e Documentação** - Limpar a API e documentar o uso.
+
+---
+
+## 🛠️ Dívida Técnica e TODOs Específicos (Codebase)
+
+### AGG Core
+- [ ] `agg_curves.dart`: Implementar `hashCode` (linhas 865, 965).
+- [ ] `vertex_source_adapter.dart`: Implementar `getLongHashCode` corretamente.
+
+### Typography / OpenFont
+#### Tables
+- [ ] **BASE**: Implementar BaseCoord Format 3 (Device Table / Variation Index).
+- [ ] **CFF**: Implementar leitura de Encoding (`cff_parser.dart`).
+- [ ] **GPOS**:
+  - [ ] Implementar Contextual Positioning Format 1, 2, 3.
+  - [ ] Implementar Chaining Contextual Positioning Format 1, 2, 3.
+- [ ] **KERN**: Revisar suporte a múltiplas tabelas e implementação específica.
+- [ ] **SVG**: Revisar lazy load e suporte a gzip-encoded.
+- [ ] **Variations**:
+  - [ ] **GVAR**: Implementar parsing completo de dados de variação (deltas).
+  - [ ] **HVAR/VVAR**: Implementar `DeltaSetIndexMap`.
+  - [ ] **ItemVariationStore**: Verificar implementação.
+
+#### Interpreter
+- [ ] `true_type_interpreter.dart`: Implementar `MPS` (Measure Point Size) corretamente.
+
+#### Readers
+- [ ] `open_font_reader.dart`: Implementar leitura customizada (TODO na linha 315).

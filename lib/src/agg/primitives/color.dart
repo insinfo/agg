@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'i_color_type.dart';
 import 'color_f.dart';
 
@@ -45,6 +46,63 @@ class Color implements IColorType {
       return Color(r, g, b, a);
     }
     throw FormatException("Invalid hex color format");
+  }
+
+  static Color fromWavelength(double w, [double gamma = 1.0]) {
+    double r = 0.0, g = 0.0, b = 0.0;
+
+    if (w >= 380.0 && w <= 440.0) {
+      r = -1.0 * (w - 440.0) / (440.0 - 380.0);
+      g = 0.0;
+      b = 1.0;
+    } else if (w >= 440.0 && w <= 490.0) {
+      r = 0.0;
+      g = (w - 440.0) / (490.0 - 440.0);
+      b = 1.0;
+    } else if (w >= 490.0 && w <= 510.0) {
+      r = 0.0;
+      g = 1.0;
+      b = -1.0 * (w - 510.0) / (510.0 - 490.0);
+    } else if (w >= 510.0 && w <= 580.0) {
+      r = (w - 510.0) / (580.0 - 510.0);
+      g = 1.0;
+      b = 0.0;
+    } else if (w >= 580.0 && w <= 645.0) {
+      r = 1.0;
+      g = -1.0 * (w - 645.0) / (645.0 - 580.0);
+      b = 0.0;
+    } else if (w >= 645.0 && w <= 780.0) {
+      r = 1.0;
+      g = 0.0;
+      b = 0.0;
+    } else {
+      r = 0.0;
+      g = 0.0;
+      b = 0.0;
+    }
+
+    double s = 1.0;
+    if (w > 700.0) {
+      s = 0.3 + 0.7 * (780.0 - w) / (780.0 - 700.0);
+    } else if (w < 420.0) {
+      s = 0.3 + 0.7 * (w - 380.0) / (420.0 - 380.0);
+    }
+
+    r = (r * s);
+    g = (g * s);
+    b = (b * s);
+
+    if (gamma != 1.0) {
+      r = math.pow(r, gamma).toDouble();
+      g = math.pow(g, gamma).toDouble();
+      b = math.pow(b, gamma).toDouble();
+    }
+
+    return Color(
+      (r * 255).round().clamp(0, 255),
+      (g * 255).round().clamp(0, 255),
+      (b * 255).round().clamp(0, 255),
+    );
   }
 
   @override

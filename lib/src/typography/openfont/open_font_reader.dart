@@ -41,6 +41,9 @@ import 'tables/vmtx.dart';
 import 'tables/gasp.dart';
 import 'tables/kern.dart';
 import 'tables/post.dart';
+import 'tables/fpgm.dart';
+import 'tables/prep.dart';
+import 'tables/cvt.dart';
 
 import 'glyph.dart';
 import 'webfont/woff_reader.dart';
@@ -361,6 +364,9 @@ class OpenFontReader {
 
     final gasp = readTableIfExists(tables, reader, Gasp());
     final kern = readTableIfExists(tables, reader, Kern());
+    final fpgm = readTableIfExists(tables, reader, FpgmTable());
+    final prep = readTableIfExists(tables, reader, PrepTable());
+    final cvt = readTableIfExists(tables, reader, CvtTable());
 
     final cmap = readTableIfExists(tables, reader, Cmap());
     
@@ -447,6 +453,9 @@ class OpenFontReader {
       gaspTable: gasp,
       kernTable: kern,
       postTable: post,
+      fpgmTable: fpgm,
+      prepTable: prep,
+      cvtTable: cvt,
     );
     return typeface;
   }

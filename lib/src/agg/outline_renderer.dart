@@ -310,6 +310,8 @@ class DistanceInterpolator2 {
 
   int dxStart() => _dxStart;
   int dyStart() => _dyStart;
+  int dxEnd() => _dxStart;
+  int dyEnd() => _dyStart;
 }
 
 class DistanceInterpolator3 {
@@ -491,13 +493,19 @@ class LineInterpolatorAABase {
 
   LineInterpolatorAABase(OutlineRenderer ren, LineParameters lp) {
     _lp = lp;
-    _li = Dda2LineInterpolator.forward(
-      0,
-      lp.vertical
-          ? (lp.dx << LineAABasics.line_subpixel_shift)
-          : (lp.dy << LineAABasics.line_subpixel_shift),
-      lp.len,
-    );
+    final int dy = lp.y2 - lp.y1;
+    final int dx = lp.x2 - lp.x1;
+    
+    final int y = lp.vertical 
+        ? (dx << LineAABasics.line_subpixel_shift) 
+        : (dy << LineAABasics.line_subpixel_shift);
+        
+    final int count = lp.vertical 
+        ? dy.abs() 
+        : dx.abs() + 1;
+
+    _li = Dda2LineInterpolator.backwardFromZero(y, count);
+
     _ren = ren;
     _len = ((lp.vertical == (lp.inc > 0)) ? -lp.len : lp.len);
     _x = lp.x1 >> LineAABasics.line_subpixel_shift;
@@ -652,8 +660,68 @@ class LineInterpolatorAA1 extends LineInterpolatorAABase {
       lp.x1 & ~LineAABasics.line_subpixel_mask,
       lp.y1 & ~LineAABasics.line_subpixel_mask,
     );
+    
+    int npix = 1;
+    if (lp.vertical) {
+      do {
+        _li.prev();
+        _y -= lp.inc;
+        _x = (_lp.x1 + _li.y()) >> LineAABasics.line_subpixel_shift;
+        
+        if (lp.inc > 0) {
+          _di.decYWithDx(_x - _oldX);
+        } else {
+          _di.incYWithDx(_x - _oldX);
+        }
+        _oldX = _x;
+        
+        int dist1Start = _di.distStart();
+        int dist2Start = _di.distStart();
+        
+        int dx = 0;
+        if (dist1Start < 0) npix++;
+        do {
+          dist1Start += _di.dyStart();
+          dist2Start -= _di.dyStart();
+          if (dist1Start < 0) npix++;
+          if (dist2Start < 0) npix++;
+          dx++;
+        } while (_dist[dx] <= _width);
+        _step--;
+        if (npix == 0) break;
+        npix = 0;
+      } while (_step >= -_maxExtent);
+    } else {
+      do {
+        _li.prev();
+        _x -= lp.inc;
+        _y = (_lp.y1 + _li.y()) >> LineAABasics.line_subpixel_shift;
+        
+        if (lp.inc > 0) {
+          _di.decXWithDy(_y - _oldY);
+        } else {
+          _di.incXWithDy(_y - _oldY);
+        }
+        _oldY = _y;
+        
+        int dist1Start = _di.distStart();
+        int dist2Start = _di.distStart();
+        
+        int dy = 0;
+        if (dist1Start < 0) npix++;
+        do {
+          dist1Start -= _di.dxStart();
+          dist2Start += _di.dxStart();
+          if (dist1Start < 0) npix++;
+          if (dist2Start < 0) npix++;
+          dy++;
+        } while (_dist[dy] <= _width);
+        _step--;
+        if (npix == 0) break;
+        npix = 0;
+      } while (_step >= -_maxExtent);
+    }
     _li.adjustForward();
-    _step -= _maxExtent;
   }
 
   bool stepHor() {
@@ -664,34 +732,37 @@ class LineInterpolatorAA1 extends LineInterpolatorAABase {
     int offset0 = LineInterpolatorAABase.maxHalfWidth + 2;
     int offset1 = offset0;
 
+    _covers[offset1] = 0;
     if (distStart <= 0) {
-      _covers[offset1++] = _ren.cover(s1);
-    } else {
-      _covers[offset1++] = 0;
+      _covers[offset1] = _ren.cover(s1);
     }
+    offset1++;
 
     dy = 1;
     while ((dist = _dist[dy] - s1) <= _width) {
-      if (distStart - _di.dyStart() * dy <= 0) {
-        _covers[offset1++] = _ren.cover(dist);
-      } else {
-        _covers[offset1++] = 0;
+      distStart -= _di.dxStart();
+      _covers[offset1] = 0;
+      if (distStart <= 0) {
+        _covers[offset1] = _ren.cover(dist);
       }
-      ++dy;
+      offset1++;
+      dy++;
     }
 
     dy = 1;
+    distStart = _di.distStart();
     while ((dist = _dist[dy] + s1) <= _width) {
-      if (distStart + _di.dyStart() * dy <= 0) {
-        _covers[--offset0] = _ren.cover(dist);
-      } else {
-        _covers[--offset0] = 0;
+      distStart += _di.dxStart();
+      offset0--;
+      _covers[offset0] = 0;
+      if (distStart <= 0) {
+        _covers[offset0] = _ren.cover(dist);
       }
-      ++dy;
+      dy++;
     }
 
     _ren.blendSolidVspan(_x, _y - dy + 1, offset1 - offset0, _covers, offset0);
-    return ++_step < _count + _maxExtent;
+    return ++_step < _count;
   }
 
   bool stepVer() {
@@ -702,34 +773,37 @@ class LineInterpolatorAA1 extends LineInterpolatorAABase {
     int offset0 = LineInterpolatorAABase.maxHalfWidth + 2;
     int offset1 = offset0;
 
+    _covers[offset1] = 0;
     if (distStart <= 0) {
-      _covers[offset1++] = _ren.cover(s1);
-    } else {
-      _covers[offset1++] = 0;
+      _covers[offset1] = _ren.cover(s1);
     }
+    offset1++;
 
     dx = 1;
     while ((dist = _dist[dx] - s1) <= _width) {
-      if (distStart - _di.dxStart() * dx <= 0) {
-        _covers[offset1++] = _ren.cover(dist);
-      } else {
-        _covers[offset1++] = 0;
+      distStart += _di.dyStart();
+      _covers[offset1] = 0;
+      if (distStart <= 0) {
+        _covers[offset1] = _ren.cover(dist);
       }
-      ++dx;
+      offset1++;
+      dx++;
     }
 
     dx = 1;
+    distStart = _di.distStart();
     while ((dist = _dist[dx] + s1) <= _width) {
-      if (distStart + _di.dxStart() * dx <= 0) {
-        _covers[--offset0] = _ren.cover(dist);
-      } else {
-        _covers[--offset0] = 0;
+      distStart -= _di.dyStart();
+      offset0--;
+      _covers[offset0] = 0;
+      if (distStart <= 0) {
+        _covers[offset0] = _ren.cover(dist);
       }
-      ++dx;
+      dx++;
     }
 
     _ren.blendSolidHspan(_x - dx + 1, _y, offset1 - offset0, _covers, offset0);
-    return ++_step < _count + _maxExtent;
+    return ++_step < _count;
   }
 }
 
@@ -764,34 +838,41 @@ class LineInterpolatorAA2 extends LineInterpolatorAABase {
     int offset0 = LineInterpolatorAABase.maxHalfWidth + 2;
     int offset1 = offset0;
 
+    int npix = 0;
+    _covers[offset1] = 0;
     if (distEnd > 0) {
-      _covers[offset1++] = _ren.cover(s1);
-    } else {
-      _covers[offset1++] = 0;
+      _covers[offset1] = _ren.cover(s1);
+      npix++;
     }
+    offset1++;
 
     dy = 1;
     while ((dist = _dist[dy] - s1) <= _width) {
-      if (distEnd - _di.dyStart() * dy > 0) {
-        _covers[offset1++] = _ren.cover(dist);
-      } else {
-        _covers[offset1++] = 0;
+      distEnd -= _di.dxStart();
+      _covers[offset1] = 0;
+      if (distEnd > 0) {
+        _covers[offset1] = _ren.cover(dist);
+        npix++;
       }
-      ++dy;
+      offset1++;
+      dy++;
     }
 
     dy = 1;
+    distEnd = _di.distEnd();
     while ((dist = _dist[dy] + s1) <= _width) {
-      if (distEnd + _di.dyStart() * dy > 0) {
-        _covers[--offset0] = _ren.cover(dist);
-      } else {
-        _covers[--offset0] = 0;
+      distEnd += _di.dxStart();
+      offset0--;
+      _covers[offset0] = 0;
+      if (distEnd > 0) {
+        _covers[offset0] = _ren.cover(dist);
+        npix++;
       }
-      ++dy;
+      dy++;
     }
 
     _ren.blendSolidVspan(_x, _y - dy + 1, offset1 - offset0, _covers, offset0);
-    return ++_step < _count + _maxExtent;
+    return npix != 0 && ++_step < _count;
   }
 
   bool stepVer() {
@@ -802,34 +883,41 @@ class LineInterpolatorAA2 extends LineInterpolatorAABase {
     int offset0 = LineInterpolatorAABase.maxHalfWidth + 2;
     int offset1 = offset0;
 
+    int npix = 0;
+    _covers[offset1] = 0;
     if (distEnd > 0) {
-      _covers[offset1++] = _ren.cover(s1);
-    } else {
-      _covers[offset1++] = 0;
+      _covers[offset1] = _ren.cover(s1);
+      npix++;
     }
+    offset1++;
 
     dx = 1;
     while ((dist = _dist[dx] - s1) <= _width) {
-      if (distEnd - _di.dxStart() * dx > 0) {
-        _covers[offset1++] = _ren.cover(dist);
-      } else {
-        _covers[offset1++] = 0;
+      distEnd += _di.dyStart();
+      _covers[offset1] = 0;
+      if (distEnd > 0) {
+        _covers[offset1] = _ren.cover(dist);
+        npix++;
       }
-      ++dx;
+      offset1++;
+      dx++;
     }
 
     dx = 1;
+    distEnd = _di.distEnd();
     while ((dist = _dist[dx] + s1) <= _width) {
-      if (distEnd + _di.dxStart() * dx > 0) {
-        _covers[--offset0] = _ren.cover(dist);
-      } else {
-        _covers[--offset0] = 0;
+      distEnd -= _di.dyStart();
+      offset0--;
+      _covers[offset0] = 0;
+      if (distEnd > 0) {
+        _covers[offset0] = _ren.cover(dist);
+        npix++;
       }
-      ++dx;
+      dx++;
     }
 
     _ren.blendSolidHspan(_x - dx + 1, _y, offset1 - offset0, _covers, offset0);
-    return ++_step < _count + _maxExtent;
+    return npix != 0 && ++_step < _count;
   }
 }
 
@@ -856,6 +944,67 @@ class LineInterpolatorAA3 extends LineInterpolatorAABase {
       lp.x1 & ~LineAABasics.line_subpixel_mask,
       lp.y1 & ~LineAABasics.line_subpixel_mask,
     );
+    
+    int npix = 1;
+    if (lp.vertical) {
+      do {
+        _li.prev();
+        _y -= lp.inc;
+        _x = (_lp.x1 + _li.y()) >> LineAABasics.line_subpixel_shift;
+        
+        if (lp.inc > 0) {
+          _di.decYWithDx(_x - _oldX);
+        } else {
+          _di.incYWithDx(_x - _oldX);
+        }
+        _oldX = _x;
+        
+        int dist1Start = _di.distStart();
+        int dist2Start = _di.distStart();
+        
+        int dx = 0;
+        if (dist1Start < 0) npix++;
+        do {
+          dist1Start += _di.dyStart();
+          dist2Start -= _di.dyStart();
+          if (dist1Start < 0) npix++;
+          if (dist2Start < 0) npix++;
+          dx++;
+        } while (_dist[dx] <= _width);
+        if (npix == 0) break;
+        npix = 0;
+        _step--;
+      } while (_step >= -_maxExtent);
+    } else {
+      do {
+        _li.prev();
+        _x -= lp.inc;
+        _y = (_lp.y1 + _li.y()) >> LineAABasics.line_subpixel_shift;
+        
+        if (lp.inc > 0) {
+          _di.decXWithDy(_y - _oldY);
+        } else {
+          _di.incXWithDy(_y - _oldY);
+        }
+        _oldY = _y;
+        
+        int dist1Start = _di.distStart();
+        int dist2Start = _di.distStart();
+        
+        int dy = 0;
+        if (dist1Start < 0) npix++;
+        do {
+          dist1Start -= _di.dxStart();
+          dist2Start += _di.dxStart();
+          if (dist1Start < 0) npix++;
+          if (dist2Start < 0) npix++;
+          dy++;
+        } while (_dist[dy] <= _width);
+        if (npix == 0) break;
+        npix = 0;
+        _step--;
+      } while (_step >= -_maxExtent);
+    }
     _li.adjustForward();
     _step -= _maxExtent;
   }
@@ -869,36 +1018,46 @@ class LineInterpolatorAA3 extends LineInterpolatorAABase {
     int offset0 = LineInterpolatorAABase.maxHalfWidth + 2;
     int offset1 = offset0;
 
-    if (distEnd > 0 && distStart <= 0) {
-      _covers[offset1++] = _ren.cover(s1);
-    } else {
-      _covers[offset1++] = 0;
+    int npix = 0;
+    _covers[offset1] = 0;
+    if (distEnd > 0) {
+      if (distStart <= 0) {
+        _covers[offset1] = _ren.cover(s1);
+      }
+      npix++;
     }
+    offset1++;
 
     dy = 1;
     while ((dist = _dist[dy] - s1) <= _width) {
-      if (distEnd - _di.dyEnd() * dy > 0 &&
-          distStart - _di.dyStart() * dy <= 0) {
-        _covers[offset1++] = _ren.cover(dist);
-      } else {
-        _covers[offset1++] = 0;
+      distStart -= _di.dxStart();
+      distEnd -= _di.dxEnd();
+      _covers[offset1] = 0;
+      if (distEnd > 0 && distStart <= 0) {
+        _covers[offset1] = _ren.cover(dist);
+        npix++;
       }
-      ++dy;
+      offset1++;
+      dy++;
     }
 
     dy = 1;
+    distStart = _di.distStart();
+    distEnd = _di.distEnd();
     while ((dist = _dist[dy] + s1) <= _width) {
-      if (distEnd + _di.dyEnd() * dy > 0 &&
-          distStart + _di.dyStart() * dy <= 0) {
-        _covers[--offset0] = _ren.cover(dist);
-      } else {
-        _covers[--offset0] = 0;
+      distStart += _di.dxStart();
+      distEnd += _di.dxEnd();
+      offset0--;
+      _covers[offset0] = 0;
+      if (distEnd > 0 && distStart <= 0) {
+        _covers[offset0] = _ren.cover(dist);
+        npix++;
       }
-      ++dy;
+      dy++;
     }
 
     _ren.blendSolidVspan(_x, _y - dy + 1, offset1 - offset0, _covers, offset0);
-    return ++_step < _count + _maxExtent;
+    return npix != 0 && ++_step < _count;
   }
 
   bool stepVer() {
@@ -910,36 +1069,46 @@ class LineInterpolatorAA3 extends LineInterpolatorAABase {
     int offset0 = LineInterpolatorAABase.maxHalfWidth + 2;
     int offset1 = offset0;
 
-    if (distEnd > 0 && distStart <= 0) {
-      _covers[offset1++] = _ren.cover(s1);
-    } else {
-      _covers[offset1++] = 0;
+    int npix = 0;
+    _covers[offset1] = 0;
+    if (distEnd > 0) {
+      if (distStart <= 0) {
+        _covers[offset1] = _ren.cover(s1);
+      }
+      npix++;
     }
+    offset1++;
 
     dx = 1;
     while ((dist = _dist[dx] - s1) <= _width) {
-      if (distEnd - _di.dxEnd() * dx > 0 &&
-          distStart - _di.dxStart() * dx <= 0) {
-        _covers[offset1++] = _ren.cover(dist);
-      } else {
-        _covers[offset1++] = 0;
+      distStart += _di.dyStart();
+      distEnd += _di.dyEnd();
+      _covers[offset1] = 0;
+      if (distEnd > 0 && distStart <= 0) {
+        _covers[offset1] = _ren.cover(dist);
+        npix++;
       }
-      ++dx;
+      offset1++;
+      dx++;
     }
 
     dx = 1;
+    distStart = _di.distStart();
+    distEnd = _di.distEnd();
     while ((dist = _dist[dx] + s1) <= _width) {
-      if (distEnd + _di.dxEnd() * dx > 0 &&
-          distStart + _di.dxStart() * dx <= 0) {
-        _covers[--offset0] = _ren.cover(dist);
-      } else {
-        _covers[--offset0] = 0;
+      distStart -= _di.dyStart();
+      distEnd -= _di.dyEnd();
+      offset0--;
+      _covers[offset0] = 0;
+      if (distEnd > 0 && distStart <= 0) {
+        _covers[offset0] = _ren.cover(dist);
+        npix++;
       }
-      ++dx;
+      dx++;
     }
 
     _ren.blendSolidHspan(_x - dx + 1, _y, offset1 - offset0, _covers, offset0);
-    return ++_step < _count + _maxExtent;
+    return npix != 0 && ++_step < _count;
   }
 }
 
@@ -1101,82 +1270,33 @@ class OutlineRenderer implements LineRenderer {
     _image.blend_solid_vspan(x, y, len, _color, covers, coversIdx);
   }
 
-  @override
-  void line0(LineParameters lp) {
-    if (lp.len > LineAABasics.line_max_length) {
-      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
-      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
-      lp.divide(RefParam(lp1), RefParam(lp2));
-      line0(lp1);
-      line0(lp2);
-      return;
-    }
+  void _semidotHline(CompareFunction cmp, int xc1, int yc1, int xc2, int yc2,
+      int x1, int y1, int x2) {
+    final Uint8List covers =
+        Uint8List(LineInterpolatorAABase.maxHalfWidth * 2 + 4);
+    int offset0 = 0;
+    int offset1 = 0;
+    int x = x1 << LineAABasics.line_subpixel_shift;
+    int y = y1 << LineAABasics.line_subpixel_shift;
+    int w = subpixelWidth();
+    final di = DistanceInterpolator0.init(xc1, yc1, xc2, yc2, x, y);
+    x += LineAABasics.line_subpixel_scale ~/ 2;
+    y += LineAABasics.line_subpixel_scale ~/ 2;
 
-    final li = LineInterpolatorAA0(this, lp);
-    if (li.vertical) {
-      while (li.stepVer()) {}
-    } else {
-      while (li.stepHor()) {}
-    }
-  }
-
-  @override
-  void line1(LineParameters lp, int sx, int sy) {
-    if (lp.len > LineAABasics.line_max_length) {
-      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
-      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
-      lp.divide(RefParam(lp1), RefParam(lp2));
-      line1(lp1, (sx + lp.x1) >> 1, (sy + lp.y1) >> 1);
-      line1(lp2, lp1.x2 + (lp1.y2 - lp1.y1), lp1.y2 - (lp1.x2 - lp1.x1));
-      return;
-    }
-
-    final li = LineInterpolatorAA1(this, lp, sx, sy);
-    if (li.vertical) {
-      while (li.stepVer()) {}
-    } else {
-      while (li.stepHor()) {}
-    }
-  }
-
-  @override
-  void line2(LineParameters lp, int ex, int ey) {
-    if (lp.len > LineAABasics.line_max_length) {
-      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
-      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
-      lp.divide(RefParam(lp1), RefParam(lp2));
-      line2(lp1, lp1.x2 + (lp1.y2 - lp1.y1), lp1.y2 - (lp1.x2 - lp1.x1));
-      line2(lp2, (ex + lp.x2) >> 1, (ey + lp.y2) >> 1);
-      return;
-    }
-
-    final li = LineInterpolatorAA2(this, lp, ex, ey);
-    if (li.vertical) {
-      while (li.stepVer()) {}
-    } else {
-      while (li.stepHor()) {}
-    }
-  }
-
-  @override
-  void line3(LineParameters lp, int sx, int sy, int ex, int ey) {
-    if (lp.len > LineAABasics.line_max_length) {
-      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
-      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
-      lp.divide(RefParam(lp1), RefParam(lp2));
-      final int mx = lp1.x2 + (lp1.y2 - lp1.y1);
-      final int my = lp1.y2 - (lp1.x2 - lp1.x1);
-      line3(lp1, (sx + lp.x1) >> 1, (sy + lp.y1) >> 1, mx, my);
-      line3(lp2, mx, my, (ex + lp.x2) >> 1, (ey + lp.y2) >> 1);
-      return;
-    }
-
-    final li = LineInterpolatorAA3(this, lp, sx, sy, ex, ey);
-    if (li.vertical) {
-      while (li.stepVer()) {}
-    } else {
-      while (li.stepHor()) {}
-    }
+    int x0 = x1;
+    int dx = x - xc1;
+    int dy = y - yc1;
+    do {
+      int d = math.sqrt(dx * dx + dy * dy).toInt();
+      covers[offset1] = 0;
+      if (cmp(di.dist()) && d <= w) {
+        covers[offset1] = cover(d);
+      }
+      ++offset1;
+      dx += LineAABasics.line_subpixel_scale;
+      di.incX();
+    } while (++x1 <= x2);
+    blendSolidHspan(x0, y1, offset1 - offset0, covers, offset0);
   }
 
   void _pieHline(int xc, int yc, int xp1, int yp1, int xp2, int yp2, int xh1,
@@ -1239,5 +1359,125 @@ class OutlineRenderer implements LineRenderer {
       ei.next();
     } while (dy < 0);
     _pieHline(xc, yc, x1, y1, x2, y2, x - dx0, y + dy0, x + dx0);
+  }
+
+  @override
+  void semidot(CompareFunction cmp, int xc1, int yc1, int xc2, int yc2) {
+    // if (_clipBox != null && ClipLiangBarsky.clipping_flags(xc1, yc1, _clipBox!) != 0) return;
+
+    int r = ((subpixelWidth() + LineAABasics.line_subpixel_mask) >>
+        LineAABasics.line_subpixel_shift);
+    if (r < 1) r = 1;
+    final ei = EllipseBresenhamInterpolator(r, r);
+    int dx = 0;
+    int dy = -r;
+    int dy0 = dy;
+    int dx0 = dx;
+    int x = xc1 >> LineAABasics.line_subpixel_shift;
+    int y = yc1 >> LineAABasics.line_subpixel_shift;
+
+    do {
+      dx += ei.dx;
+      dy += ei.dy;
+
+      if (dy != dy0) {
+        _semidotHline(cmp, xc1, yc1, xc2, yc2, x - dx0, y + dy0, x + dx0);
+        _semidotHline(cmp, xc1, yc1, xc2, yc2, x - dx0, y - dy0, x + dx0);
+      }
+      dx0 = dx;
+      dy0 = dy;
+      ei.next();
+    } while (dy < 0);
+    _semidotHline(cmp, xc1, yc1, xc2, yc2, x - dx0, y + dy0, x + dx0);
+  }
+
+  @override
+  void line0(LineParameters lp) {
+    if (lp.len > LineAABasics.line_max_length) {
+      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
+      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
+      lp.divide(RefParam(lp1), RefParam(lp2));
+      line0(lp1);
+      line0(lp2);
+      return;
+    }
+
+    final li = LineInterpolatorAA0(this, lp);
+    if (li.vertical) {
+      while (li.stepVer()) {}
+    } else {
+      while (li.stepHor()) {}
+    }
+  }
+
+  @override
+  void line1(LineParameters lp, int sx, int sy) {
+    if (lp.len > LineAABasics.line_max_length) {
+      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
+      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
+      lp.divide(RefParam(lp1), RefParam(lp2));
+      line1(lp1, (sx + lp.x1) >> 1, (sy + lp.y1) >> 1);
+      line1(lp2, lp1.x2 + (lp1.y2 - lp1.y1), lp1.y2 - (lp1.x2 - lp1.x1));
+      return;
+    }
+
+    final sxRef = RefParam<int>(sx);
+    final syRef = RefParam<int>(sy);
+    LineAABasics.fix_degenerate_bisectrix_start(lp, sxRef, syRef);
+    final li = LineInterpolatorAA1(this, lp, sxRef.value, syRef.value);
+    if (li.vertical) {
+      while (li.stepVer()) {}
+    } else {
+      while (li.stepHor()) {}
+    }
+  }
+
+  @override
+  void line2(LineParameters lp, int ex, int ey) {
+    if (lp.len > LineAABasics.line_max_length) {
+      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
+      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
+      lp.divide(RefParam(lp1), RefParam(lp2));
+      line2(lp1, lp1.x2 + (lp1.y2 - lp1.y1), lp1.y2 - (lp1.x2 - lp1.x1));
+      line2(lp2, (ex + lp.x2) >> 1, (ey + lp.y2) >> 1);
+      return;
+    }
+
+    final exRef = RefParam<int>(ex);
+    final eyRef = RefParam<int>(ey);
+    LineAABasics.fix_degenerate_bisectrix_end(lp, exRef, eyRef);
+    final li = LineInterpolatorAA2(this, lp, exRef.value, eyRef.value);
+    if (li.vertical) {
+      while (li.stepVer()) {}
+    } else {
+      while (li.stepHor()) {}
+    }
+  }
+
+  @override
+  void line3(LineParameters lp, int sx, int sy, int ex, int ey) {
+    if (lp.len > LineAABasics.line_max_length) {
+      LineParameters lp1 = LineParameters(0, 0, 0, 0, 0);
+      LineParameters lp2 = LineParameters(0, 0, 0, 0, 0);
+      lp.divide(RefParam(lp1), RefParam(lp2));
+      final int mx = lp1.x2 + (lp1.y2 - lp1.y1);
+      final int my = lp1.y2 - (lp1.x2 - lp1.x1);
+      line3(lp1, (sx + lp.x1) >> 1, (sy + lp.y1) >> 1, mx, my);
+      line3(lp2, mx, my, (ex + lp.x2) >> 1, (ey + lp.y2) >> 1);
+      return;
+    }
+
+    final sxRef = RefParam<int>(sx);
+    final syRef = RefParam<int>(sy);
+    final exRef = RefParam<int>(ex);
+    final eyRef = RefParam<int>(ey);
+    LineAABasics.fix_degenerate_bisectrix_start(lp, sxRef, syRef);
+    LineAABasics.fix_degenerate_bisectrix_end(lp, exRef, eyRef);
+    final li = LineInterpolatorAA3(this, lp, sxRef.value, syRef.value, exRef.value, eyRef.value);
+    if (li.vertical) {
+      while (li.stepVer()) {}
+    } else {
+      while (li.stepHor()) {}
+    }
   }
 }

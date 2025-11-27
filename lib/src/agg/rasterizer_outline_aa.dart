@@ -14,13 +14,14 @@ abstract class LineRenderer {
   void line1(LineParameters lp, int xb1, int yb1);
   void line2(LineParameters lp, int xb2, int yb2);
   void line3(LineParameters lp, int xb1, int yb1, int xb2, int yb2);
+  void semidot(CompareFunction cmp, int xc1, int yc1, int xc2, int yc2);
   void pie(int x1, int y1, int x2, int y2, int x3, int y3);
 }
 
 class RasterizerOutlineAA {
   final LineRenderer _renderer;
   final LineAAVertexSequence _srcVertices = LineAAVertexSequence();
-  OutlineJoin _lineJoin = OutlineJoin.miter;
+  OutlineJoin _lineJoin = OutlineJoin.round; // Default to round like Rust
   bool _roundCap = false;
   int _startX = 0;
   int _startY = 0;
@@ -32,6 +33,9 @@ class RasterizerOutlineAA {
 
   bool get roundCap => _roundCap;
   set roundCap(bool v) => _roundCap = v;
+
+  bool cmpDistStart(int d) => d > 0;
+  bool cmpDistEnd(int d) => d <= 0;
 
   void moveTo(int x, int y) {
     _srcVertices.add(LineAAVertex(x, y));
@@ -49,57 +53,267 @@ class RasterizerOutlineAA {
   }
 
   void render([bool close = false]) {
-    if (_srcVertices.length < 2) return;
-    if (close) {
-      _srcVertices.add(LineAAVertex(_startX, _startY));
-    }
-
-    if (_srcVertices.length == 2) {
-      final dx = _srcVertices[1].x - _srcVertices[0].x;
-      final dy = _srcVertices[1].y - _srcVertices[0].y;
-      final len = Agg_basics.uround(math.sqrt((dx * dx + dy * dy).toDouble()));
-      _renderer.line0(LineParameters(_srcVertices[0].x, _srcVertices[0].y,
-          _srcVertices[1].x, _srcVertices[1].y, len));
-      return;
-    }
-
+    _srcVertices.close(close);
     final DrawVars dv = DrawVars();
-    dv.idx = 1;
-    dv.x1 = _srcVertices[0].x;
-    dv.y1 = _srcVertices[0].y;
-    dv.x2 = _srcVertices[1].x;
-    dv.y2 = _srcVertices[1].y;
-    final dx = dv.x2 - dv.x1;
-    final dy = dv.y2 - dv.y1;
-    final int segLen =
-        Agg_basics.uround(math.sqrt((dx * dx + dy * dy).toDouble()));
-    dv.lcurr = dv.lnext = segLen;
-    dv.curr = LineParameters(dv.x1, dv.y1, dv.x2, dv.y2, dv.lcurr);
+    LineAAVertex v;
+    int x1, y1, x2, y2, lprev;
 
-    int flags = 3;
-    if (_lineJoin == OutlineJoin.miter ||
-        _lineJoin == OutlineJoin.miterAccurate) {
-      if (_srcVertices.length > 2) {
-        dv.xb1 = dv.curr.x1 + (dv.curr.y2 - dv.curr.y1);
-        dv.yb1 = dv.curr.y1 - (dv.curr.x2 - dv.curr.x1);
-        // Initialize next segment for proper join calculations
-        final nextIdx = 2;
-        if (nextIdx < _srcVertices.length) {
-          final dx2 = _srcVertices[nextIdx].x - dv.x2;
-          final dy2 = _srcVertices[nextIdx].y - dv.y2;
-          final nextSegLen =
-              Agg_basics.uround(math.sqrt((dx2 * dx2 + dy2 * dy2).toDouble()));
-          dv.next = LineParameters(dv.x2, dv.y2, _srcVertices[nextIdx].x,
-              _srcVertices[nextIdx].y, nextSegLen);
+    if (close) {
+      if (_srcVertices.length >= 3) {
+        dv.idx = 2;
+
+        v = _srcVertices[_srcVertices.length - 1];
+        x1 = v.x;
+        y1 = v.y;
+        lprev = v.len;
+
+        v = _srcVertices[0];
+        x2 = v.x;
+        y2 = v.y;
+        dv.lcurr = v.len;
+        final LineParameters prev = LineParameters(x1, y1, x2, y2, lprev);
+
+        v = _srcVertices[1];
+        dv.x1 = v.x;
+        dv.y1 = v.y;
+        dv.lnext = v.len;
+        dv.curr = LineParameters(x2, y2, dv.x1, dv.y1, dv.lcurr);
+
+        v = _srcVertices[dv.idx];
+        dv.x2 = v.x;
+        dv.y2 = v.y;
+        dv.next = LineParameters(dv.x1, dv.y1, dv.x2, dv.y2, dv.lnext);
+
+        dv.xb1 = 0;
+        dv.yb1 = 0;
+        dv.xb2 = 0;
+        dv.yb2 = 0;
+
+        switch (_lineJoin) {
+          case OutlineJoin.noJoin:
+            dv.flags = 3;
+            break;
+          case OutlineJoin.miter:
+          case OutlineJoin.round:
+            dv.flags = (prev.diagonalQuadrant() == dv.curr.diagonalQuadrant()
+                    ? 1
+                    : 0) |
+                ((dv.curr.diagonalQuadrant() == dv.next.diagonalQuadrant()
+                        ? 1
+                        : 0) <<
+                    1);
+            break;
+          case OutlineJoin.miterAccurate:
+            dv.flags = 0;
+            break;
         }
+
+        if ((dv.flags & 1) == 0 && _lineJoin != OutlineJoin.round) {
+          final rx = RefParam<int>(0);
+          final ry = RefParam<int>(0);
+          LineAABasics.bisectrix(prev, dv.curr, rx, ry);
+          dv.xb1 = rx.value;
+          dv.yb1 = ry.value;
+        }
+
+        if ((dv.flags & 2) == 0 && _lineJoin != OutlineJoin.round) {
+          final rx = RefParam<int>(0);
+          final ry = RefParam<int>(0);
+          LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
+          dv.xb2 = rx.value;
+          dv.yb2 = ry.value;
+        }
+        _draw(dv, 0, _srcVertices.length);
+      }
+    } else {
+      switch (_srcVertices.length) {
+        case 0:
+        case 1:
+          break;
+        case 2:
+          {
+            v = _srcVertices[0];
+            x1 = v.x;
+            y1 = v.y;
+            lprev = v.len;
+            v = _srcVertices[1];
+            x2 = v.x;
+            y2 = v.y;
+            final LineParameters lp = LineParameters(x1, y1, x2, y2, lprev);
+            if (_roundCap) {
+              _renderer.semidot(
+                  cmpDistStart, x1, y1, x1 + (y2 - y1), y1 - (x2 - x1));
+            }
+            _renderer.line3(
+                lp, x1 + (y2 - y1), y1 - (x2 - x1), x2 + (y2 - y1), y2 - (x2 - x1));
+            if (_roundCap) {
+              _renderer.semidot(
+                  cmpDistEnd, x2, y2, x2 + (y2 - y1), y2 - (x2 - x1));
+            }
+          }
+          break;
+        case 3:
+          {
+            int x3, y3;
+            int lnext;
+            v = _srcVertices[0];
+            x1 = v.x;
+            y1 = v.y;
+            lprev = v.len;
+            v = _srcVertices[1];
+            x2 = v.x;
+            y2 = v.y;
+            lnext = v.len;
+            v = _srcVertices[2];
+            x3 = v.x;
+            y3 = v.y;
+            final LineParameters lp1 = LineParameters(x1, y1, x2, y2, lprev);
+            final LineParameters lp2 = LineParameters(x2, y2, x3, y3, lnext);
+
+            if (_roundCap) {
+              _renderer.semidot(
+                  cmpDistStart, x1, y1, x1 + (y2 - y1), y1 - (x2 - x1));
+            }
+
+            if (_lineJoin == OutlineJoin.round) {
+              _renderer.line3(lp1, x1 + (y2 - y1), y1 - (x2 - x1),
+                  x2 + (y2 - y1), y2 - (x2 - x1));
+              _renderer.pie(x2, y2, x2 + (y2 - y1), y2 - (x2 - x1),
+                  x2 + (y3 - y2), y2 - (x3 - x2));
+              _renderer.line3(lp2, x2 + (y3 - y2), y2 - (x3 - x2),
+                  x3 + (y3 - y2), y3 - (x3 - x2));
+            } else {
+              final rx = RefParam<int>(0);
+              final ry = RefParam<int>(0);
+              LineAABasics.bisectrix(lp1, lp2, rx, ry);
+              dv.xb1 = rx.value;
+              dv.yb1 = ry.value;
+              _renderer.line3(lp1, x1 + (y2 - y1), y1 - (x2 - x1), dv.xb1, dv.yb1);
+              _renderer.line3(lp2, dv.xb1, dv.yb1, x3 + (y3 - y2), y3 - (x3 - x2));
+            }
+            if (_roundCap) {
+              _renderer.semidot(
+                  cmpDistEnd, x3, y3, x3 + (y3 - y2), y3 - (x3 - x2));
+            }
+          }
+          break;
+        default:
+          {
+            dv.idx = 3;
+            v = _srcVertices[0];
+            x1 = v.x;
+            y1 = v.y;
+            lprev = v.len;
+
+            v = _srcVertices[1];
+            x2 = v.x;
+            y2 = v.y;
+            dv.lcurr = v.len;
+            final LineParameters prev = LineParameters(x1, y1, x2, y2, lprev);
+
+            v = _srcVertices[2];
+            dv.x1 = v.x;
+            dv.y1 = v.y;
+            dv.lnext = v.len;
+            dv.curr = LineParameters(x2, y2, dv.x1, dv.y1, dv.lcurr);
+
+            v = _srcVertices[dv.idx];
+            dv.x2 = v.x;
+            dv.y2 = v.y;
+            dv.next = LineParameters(dv.x1, dv.y1, dv.x2, dv.y2, dv.lnext);
+
+            dv.xb1 = 0;
+            dv.yb1 = 0;
+            dv.xb2 = 0;
+            dv.yb2 = 0;
+
+            switch (_lineJoin) {
+              case OutlineJoin.noJoin:
+                dv.flags = 3;
+                break;
+              case OutlineJoin.miter:
+              case OutlineJoin.round:
+                dv.flags = (prev.diagonalQuadrant() == dv.curr.diagonalQuadrant()
+                        ? 1
+                        : 0) |
+                    ((dv.curr.diagonalQuadrant() == dv.next.diagonalQuadrant()
+                            ? 1
+                            : 0) <<
+                        1);
+                break;
+              case OutlineJoin.miterAccurate:
+                dv.flags = 0;
+                break;
+            }
+
+            if (_roundCap) {
+              _renderer.semidot(
+                  cmpDistStart, x1, y1, x1 + (y2 - y1), y1 - (x2 - x1));
+            }
+
+            if ((dv.flags & 1) == 0) {
+              if (_lineJoin == OutlineJoin.round) {
+                _renderer.line3(prev, x1 + (y2 - y1), y1 - (x2 - x1),
+                    x2 + (y2 - y1), y2 - (x2 - x1));
+                _renderer.pie(prev.x2, prev.y2, x2 + (y2 - y1), y2 - (x2 - x1),
+                    dv.curr.x1 + (dv.curr.y2 - dv.curr.y1),
+                    dv.curr.y1 - (dv.curr.x2 - dv.curr.x1));
+              } else {
+                final rx = RefParam<int>(0);
+                final ry = RefParam<int>(0);
+                LineAABasics.bisectrix(prev, dv.curr, rx, ry);
+                dv.xb1 = rx.value;
+                dv.yb1 = ry.value;
+                _renderer.line3(prev, x1 + (y2 - y1), y1 - (x2 - x1), dv.xb1, dv.yb1);
+              }
+            } else {
+              _renderer.line1(prev, x1 + (y2 - y1), y1 - (x2 - x1));
+            }
+
+            if ((dv.flags & 2) == 0 && _lineJoin != OutlineJoin.round) {
+              final rx = RefParam<int>(0);
+              final ry = RefParam<int>(0);
+              LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
+              dv.xb2 = rx.value;
+              dv.yb2 = ry.value;
+            }
+
+            _draw(dv, 1, _srcVertices.length - 2, 0); // flags passed as 0 but overwritten in draw
+
+            if ((dv.flags & 1) == 0) {
+              if (_lineJoin == OutlineJoin.round) {
+                _renderer.line3(dv.curr, dv.curr.x1 + (dv.curr.y2 - dv.curr.y1),
+                    dv.curr.y1 - (dv.curr.x2 - dv.curr.x1),
+                    dv.curr.x2 + (dv.curr.y2 - dv.curr.y1),
+                    dv.curr.y2 - (dv.curr.x2 - dv.curr.x1));
+              } else {
+                _renderer.line3(dv.curr, dv.xb1, dv.yb1,
+                    dv.curr.x2 + (dv.curr.y2 - dv.curr.y1),
+                    dv.curr.y2 - (dv.curr.x2 - dv.curr.x1));
+              }
+            } else {
+              _renderer.line2(dv.curr, dv.curr.x2 + (dv.curr.y2 - dv.curr.y1),
+                  dv.curr.y2 - (dv.curr.x2 - dv.curr.x1));
+            }
+
+            if (_roundCap) {
+              _renderer.semidot(cmpDistEnd, dv.curr.x2, dv.curr.y2,
+                  dv.curr.x2 + (dv.curr.y2 - dv.curr.y1),
+                  dv.curr.y2 - (dv.curr.x2 - dv.curr.x1));
+            }
+          }
+          break;
       }
     }
-
-    _draw(dv, 1, _srcVertices.length - 1, flags);
+    _srcVertices.clear();
   }
 
-  void _draw(DrawVars dv, int start, int end, int flags) {
-    dv.flags = flags;
+  void _draw(DrawVars dv, int start, int end, [int flags = 0]) {
+    // flags argument is ignored if not passed, but we use dv.flags
+    // In C# draw takes ref dv, start, end. flags is inside dv.
+    // But in my previous implementation I passed flags.
+    // Now I will use dv.flags.
+    
     for (int i = start; i < end; i++) {
       if (_lineJoin == OutlineJoin.round) {
         dv.xb1 = dv.curr.x1 + (dv.curr.y2 - dv.curr.y1);
@@ -168,18 +382,19 @@ class RasterizerOutlineAA {
           }
           break;
         case OutlineJoin.round:
-          dv.flags = 0;
+          dv.flags >>= 1;
+          dv.flags |= ((dv.curr.diagonalQuadrant() == dv.next.diagonalQuadrant()
+                  ? 1
+                  : 0) <<
+              1);
           break;
         case OutlineJoin.miterAccurate:
-          dv.flags >>= 1;
-          dv.flags |= _accurateJoin(dv.curr, dv.next) ? 1 : 0;
-          if ((dv.flags & 2) == 0) {
-            final rx = RefParam<int>(0);
-            final ry = RefParam<int>(0);
-            LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
-            dv.xb2 = rx.value;
-            dv.yb2 = ry.value;
-          }
+          dv.flags = 0;
+          final rx = RefParam<int>(0);
+          final ry = RefParam<int>(0);
+          LineAABasics.bisectrix(dv.curr, dv.next, rx, ry);
+          dv.xb2 = rx.value;
+          dv.yb2 = ry.value;
           break;
       }
     }
